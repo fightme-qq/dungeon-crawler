@@ -4,6 +4,7 @@ import { generateDungeon, isEdgeWall, TILE_FLOOR, TILE_STAIR, TILE_WALL } from '
 import { calcDamage } from '../utils/combat';
 import { BaseEnemy } from '../entities/BaseEnemy';
 import { Skeleton } from '../entities/Skeleton';
+import { Vampire } from '../entities/Vampire';
 import { SCALE, TILE_S } from '../utils/constants';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
@@ -90,8 +91,11 @@ export class GameScene extends Phaser.Scene {
         const y = row * TILE_S + TILE_S / 2;
 
         if (t === TILE_FLOOR || t === TILE_STAIR) {
-          const img = this.add.image(x, y, t === TILE_STAIR ? 'stair' : 'tileset', t === TILE_STAIR ? undefined : FRAME_FLOOR);
-          img.setScale(SCALE).setDepth(-1);
+          this.add.image(x, y, 'tileset', FRAME_FLOOR).setScale(SCALE).setDepth(-1);
+          if (t === TILE_STAIR) {
+            const stairSprite = this.add.sprite(x, y, 'stair');
+            stairSprite.setScale(SCALE).setDepth(0).play('stair-anim');
+          }
         } else if (isEdgeWall(tiles, col, row)) {
           const frame = getWallFrame(tiles, col, row, width, height);
           const wall = this.walls.create(x, y, 'tileset', frame) as Phaser.Physics.Arcade.Sprite;
@@ -108,7 +112,20 @@ export class GameScene extends Phaser.Scene {
     this.player.body!.setSize(10, 8);
     this.player.body!.setOffset(3, 8);
 
-    // Spawn enemies — +1 per floor, capped at MAX_ENEMIES_PER_ROOM
+    // Spawn torches — 1-2 per normal room, on top wall face tiles
+    for (const room of dungeon.rooms.filter(r => r.type !== 'start')) {
+      const count = Phaser.Math.Between(1, 2);
+      for (let i = 0; i < count; i++) {
+        const col = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
+        const row = room.y; // top wall row of room interior
+        const tx = col * TILE_S + TILE_S / 2;
+        const ty = row * TILE_S + TILE_S / 2;
+        const torch = this.add.sprite(tx, ty, 'torch');
+        torch.setScale(SCALE).setDepth(ty + 1).play('torch-anim');
+      }
+    }
+
+    // Spawn enemies — +1 per floor, capped at maxEnemiesPerRoom
     const baseMin = balance.dungeon.enemiesPerRoom.min;
     const baseMax = balance.dungeon.enemiesPerRoom.max;
     const cap = balance.dungeon.maxEnemiesPerRoom;
@@ -120,10 +137,14 @@ export class GameScene extends Phaser.Scene {
       for (let e = 0; e < count; e++) {
         const col = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
         const row = Phaser.Math.Between(room.y + 1, room.y + room.h - 2);
-        const skeleton = new Skeleton(this, col * TILE_S + TILE_S / 2, row * TILE_S + TILE_S / 2);
-        skeleton.setPlayer(this.player);
-        skeleton.onDamagePlayer = (atk, fx, fy) => this.damagePlayer(atk, fx, fy);
-        this.enemies.add(skeleton);
+        const ex = col * TILE_S + TILE_S / 2;
+        const ey = row * TILE_S + TILE_S / 2;
+        const enemy = Math.random() < balance.enemies.vampire.spawnChance
+          ? new Vampire(this, ex, ey)
+          : new Skeleton(this, ex, ey);
+        enemy.setPlayer(this.player);
+        enemy.onDamagePlayer = (atk, fx, fy) => this.damagePlayer(atk, fx, fy);
+        this.enemies.add(enemy);
       }
     }
 

@@ -21,6 +21,17 @@
       "attackRange": 50,
       "attackCooldown": 800,
       "invincibilityDuration": 500
+    },
+    "vampire": {
+      "hp": 450,
+      "armor": 5,
+      "attack": 80,
+      "speed": 170,
+      "aggroRange": 130,
+      "attackRange": 45,
+      "attackCooldown": 600,
+      "invincibilityDuration": 400,
+      "spawnChance": 0.3
     }
   },
   "dungeon": {
