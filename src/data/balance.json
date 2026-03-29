@@ -1,39 +1,38 @@
 {
   "player": {
-    "speed": 1000,
-    "hp": 10,
-    "attack": 3,
-    "defense": 1,
-    "attackCooldown": 400,
-    "invincibilityDuration": 500,
-    "knockbackForce": 80
+    "speed": 200,
+    "hp": 1000,
+    "armor": 10,
+    "attack": 100,
+    "attackCooldown": 350,
+    "invincibilityDuration": 400,
+    "knockbackForce": 300,
+    "knockbackDuration": 150,
+    "hitboxSize": 40,
+    "hitboxOffset": 38
   },
   "enemies": {
     "skeleton": {
-      "hp": 4,
-      "attack": 2,
-      "defense": 0,
-      "speed": 40,
-      "aggroRange": 80,
-      "attackRange": 18
-    },
-    "vampire": {
-      "hp": 6,
-      "attack": 3,
-      "defense": 1,
-      "speed": 50,
+      "hp": 300,
+      "armor": 10,
+      "attack": 60,
+      "speed": 120,
       "aggroRange": 100,
-      "attackRange": 18
+      "attackRange": 50,
+      "attackCooldown": 800,
+      "invincibilityDuration": 500
     }
   },
   "dungeon": {
-    "roomMin": 4,
-    "roomMax": 7,
-    "roomSizeMin": 5,
-    "roomSizeMax": 9,
-    "enemiesPerRoom": {
-      "min": 1,
-      "max": 3
-    }
+    "mapWidth": 40,
+    "mapHeight": 30,
+    "bspDepthMin": 3,
+    "bspDepthMax": 4,
+    "minLeafSize": 7,
+    "roomPadding": 1,
+    "corridorWidth": 1,
+    "extraCorridors": 1,
+    "enemiesPerRoom": { "min": 2, "max": 4 },
+    "maxEnemiesPerRoom": 5
   }
 }
