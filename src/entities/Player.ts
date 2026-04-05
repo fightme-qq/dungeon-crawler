@@ -260,14 +260,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const r   = startR + (endR - startR) * pct;
       const a   = (1 - pct) * 0.6;
       gfx.clear();
-      // Expanding ring
+      // Expanding ring only
       gfx.lineStyle(2 * (1 - pct), color, a);
       gfx.strokeCircle(x, y, r);
-      // Inner dot
-      if (pct < 0.7) {
-        gfx.fillStyle(0xffffff, (1 - pct / 0.7) * 0.4);
-        gfx.fillCircle(x, y, r * 0.3);
-      }
       if (pct >= 1) {
         gfx.destroy();
         this.scene.events.off('update', ticker);
