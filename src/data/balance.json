@@ -72,12 +72,12 @@
     }
   },
   "coins": {
-    "silverFrame": 131,
-    "goldFrame":   130,
-    "redFrame":    128,
-    "silverValue": 1,
-    "goldValue":   10,
-    "redValue":    100
+    "redFrame":     0,
+    "silverFrame":  1,
+    "goldFrame":    2,
+    "silverValue":  1,
+    "goldValue":    10,
+    "redValue":     100
   },
   "trap": {
     "damage": 60,

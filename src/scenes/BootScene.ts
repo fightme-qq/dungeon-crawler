@@ -27,8 +27,8 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet('skeleton-attack', 'assets/enemies/Enemy_Animations_Set/enemies-skeleton1_attack.png',      { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('skeleton-hit',    'assets/enemies/Enemy_Animations_Set/enemies-skeleton1_take_damage.png', { frameWidth: 32, frameHeight: 32 });
 
-    // Icons spritesheet (Raven Fantasy Icons, 32×32 grid, 16 cols)
-    this.load.spritesheet('icons', 'assets/Free - Raven Fantasy Icons/Full Spritesheet/32x32.png', {
+    // Coins spritesheet (32×32 grid)
+    this.load.spritesheet('icons', 'assets/32x32.png', {
       frameWidth: 32, frameHeight: 32,
     });
 
