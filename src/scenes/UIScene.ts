@@ -38,8 +38,10 @@ const C_PLAYER       = 0x44ff44;
 const C_ENEMY        = 0xcc2222;
 
 export class UIScene extends Phaser.Scene {
-  private hpBarEmpty!: Phaser.GameObjects.Sprite; // всегда виден (пустые слоты)
-  private hpBarFill!:  Phaser.GameObjects.Sprite; // кропается по HP%
+  private hpBarEmpty!:  Phaser.GameObjects.Sprite; // всегда виден (пустые слоты)
+  private hpBarFill!:   Phaser.GameObjects.Sprite; // кропается по HP%
+  private hpBarDamage!: Phaser.GameObjects.Sprite; // overlay — анимация урона
+  private hpBarHeal!:   Phaser.GameObjects.Sprite; // overlay — анимация хила
   private hpText!:    Phaser.GameObjects.Text;
   private floorText!: Phaser.GameObjects.Text;
   private prevHp      = MAX_HP;
@@ -90,6 +92,16 @@ export class UIScene extends Phaser.Scene {
     this.hpBarFill = this.add.sprite(PAD, PAD, 'hp-bar', 0)
       .setScale(HP_SCALE).setOrigin(0, 0)
       .setScrollFactor(0).setDepth(101);
+
+    // Overlay анимации поверх бара (damage / heal)
+    this.hpBarDamage = this.add.sprite(PAD, PAD, 'hp-damage', 0)
+      .setScale(HP_SCALE).setOrigin(0, 0)
+      .setScrollFactor(0).setDepth(103).setVisible(false);
+    this.hpBarHeal = this.add.sprite(PAD, PAD, 'hp-heal', 0)
+      .setScale(HP_SCALE).setOrigin(0, 0)
+      .setScrollFactor(0).setDepth(103).setVisible(false);
+    this.hpBarDamage.on('animationcomplete', () => this.hpBarDamage.setVisible(false));
+    this.hpBarHeal.on('animationcomplete',   () => this.hpBarHeal.setVisible(false));
 
     // Текст HP по центру сердечка (сердечко x=0..15 → центр x≈8 → display PAD+32)
     this.hpText = this.add.text(PAD + 8 * HP_SCALE, PAD + BAR_H / 2, `${MAX_HP}`, {
@@ -193,10 +205,15 @@ export class UIScene extends Phaser.Scene {
 
   private onHpChanged(current: number, max: number) {
     const pct   = Math.max(0, Math.min(1, current / max));
-    // setCrop в координатах источника (до scale): показываем сердце + pct зоны заполнения
     const cropW = FILL_SRC_START + FILL_SRC_W * pct;
     this.hpBarFill.setCrop(0, 0, cropW, FILL_SRC_H);
     this.hpText.setText(`${Math.round(current)}`);
+
+    if (current < this.prevHp) {
+      this.hpBarDamage.setVisible(true).play('hp-damage-anim', true);
+    } else if (current > this.prevHp) {
+      this.hpBarHeal.setVisible(true).play('hp-heal-anim', true);
+    }
     this.prevHp = current;
   }
 

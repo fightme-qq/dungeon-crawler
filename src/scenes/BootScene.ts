@@ -42,7 +42,9 @@ export class BootScene extends Phaser.Scene {
 
     // CrimsonFantasyGUI — HP бар (64×16 каждый фрейм, 20 фреймов: 0=полный, 19=пустой)
     const animBase = 'assets/ui/CrimsonFantasyGUI/AnimationSheets/';
-    this.load.spritesheet('hp-bar', animBase + 'CriticalDamage/CriticalDamage-Sheet.png', { frameWidth: 64, frameHeight: 16 });
+    this.load.spritesheet('hp-bar',    animBase + 'CriticalDamage/CriticalDamage-Sheet.png',         { frameWidth: 64, frameHeight: 16 });
+    this.load.spritesheet('hp-damage', animBase + 'MediumDamage/MediumDamage-Sheet.png',             { frameWidth: 64, frameHeight: 16 });
+    this.load.spritesheet('hp-heal',   animBase + 'HealthRegeneration/LifeHealing-Sheet.png',        { frameWidth: 64, frameHeight: 16 });
 
     // Orc enemy — 100×100 frames (same pack as Soldier)
     const orc = 'assets/Characters(100x100)/Orc/Orc/';
@@ -207,6 +209,17 @@ export class BootScene extends Phaser.Scene {
       frameRate: 8, repeat: 0,
     });
 
+
+    this.anims.create({
+      key: 'hp-damage-anim',
+      frames: this.anims.generateFrameNumbers('hp-damage', { start: 0, end: 25 }),
+      frameRate: 18, repeat: 0,
+    });
+    this.anims.create({
+      key: 'hp-heal-anim',
+      frames: this.anims.generateFrameNumbers('hp-heal', { start: 0, end: 12 }),
+      frameRate: 14, repeat: 0,
+    });
 
     this.scene.start('GameScene');
   }
