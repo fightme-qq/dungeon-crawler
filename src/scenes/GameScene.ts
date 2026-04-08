@@ -546,10 +546,10 @@ export class GameScene extends Phaser.Scene {
     const worldY  = pointer.y / cam.zoom + cam.worldView.y;
     const mouseAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, worldX, worldY);
 
-    // Clamp to facing half-circle: if facing right → [-π/2, π/2], left → [π/2, 3π/2]
-    const facingRight = this.player.facingAngle > -Math.PI / 2 && this.player.facingAngle < Math.PI / 2
-                     || (worldX >= this.player.x);
-    const halfDir = facingRight ? 0 : Math.PI;
+    // Flip toward mouse, then clamp to that facing half
+    const shootRight = worldX >= this.player.x;
+    this.player.setFacing(shootRight);
+    const halfDir = shootRight ? 0 : Math.PI;
     const diff    = Phaser.Math.Angle.Wrap(mouseAngle - halfDir);
     const clamped = halfDir + Phaser.Math.Clamp(diff, -Math.PI / 2, Math.PI / 2);
 

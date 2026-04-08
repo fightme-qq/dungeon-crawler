@@ -64,6 +64,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   get hp(): number { return this._hp; }
   get facingAngle(): number { return this._facingAngle; }
 
+  setFacing(right: boolean): void {
+    this.facingRight = right;
+    this.setFlipX(!right);
+  }
+
   getAtk2CooldownPct(): number {
     return this.atk2Timer > 0 ? Math.min(1, this.atk2Timer / balance.player.attack2.cooldown) : 0;
   }
