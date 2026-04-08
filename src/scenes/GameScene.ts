@@ -10,6 +10,7 @@ import { Player } from '../entities/Player';
 import { SCALE, TILE_S } from '../utils/constants';
 import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
+import { Chest } from '../entities/Chest';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
 const FRAME_FLOOR        = 11; // row 1 col 1 — interior floor
@@ -64,6 +65,7 @@ export class GameScene extends Phaser.Scene {
 
   private coins!:   Phaser.Physics.Arcade.StaticGroup;
   private potions!: Phaser.Physics.Arcade.StaticGroup;
+  private chests:   Chest[] = [];
   private coinValue = 0;
   private floatText!: FloatTextSystem;
   private arrowSystem!: ArrowSystem; // total in silver units
@@ -162,6 +164,20 @@ export class GameScene extends Phaser.Scene {
         const tx  = col * TILE_S + TILE_S / 2;
         const ty  = row * TILE_S + TILE_S / 2;
         this.add.sprite(tx, ty, 'torch').setScale(SCALE).setDepth(ty + 1).play('torch-anim');
+      }
+    }
+
+    // ── Chest — spawn in start room ───────────────────────────
+    {
+      this.chests = [];
+      const startRoom = dungeon.rooms.find(r => r.type === 'start');
+      if (startRoom) {
+        const cx = (startRoom.x + Math.floor(startRoom.w / 2)) * TILE_S + TILE_S / 2;
+        const cy = (startRoom.y + Math.floor(startRoom.h / 2)) * TILE_S + TILE_S / 2 + TILE_S;
+        const chest = new Chest(this, cx, cy);
+        chest.onOpen = (ox, oy) => this.spawnChestLoot(ox, oy);
+        this.chests.push(chest);
+        this.physics.add.collider(this.player, chest);
       }
     }
 
@@ -424,6 +440,7 @@ export class GameScene extends Phaser.Scene {
     this.floatText  = new FloatTextSystem(this);
     this.arrowSystem = new ArrowSystem(this, this.enemies, tiles,
       (x, y, dmg, isCrit) => this.floatText.showDamage(x, y, dmg, isCrit));
+    this.arrowSystem.setChests(this.chests);
     this.scene.launch('UIScene');
     this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
     this.game.events.emit('floorChanged', this.floor);
@@ -490,6 +507,60 @@ export class GameScene extends Phaser.Scene {
     return [calcDamage(dmgBase * mult, armor), isCrit];
   }
 
+  private hitChestsRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number): void {
+    for (const chest of this.chests) {
+      if (!chest.active) continue;
+      const body = chest.body as Phaser.Physics.Arcade.StaticBody;
+      const cr = new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height);
+      if (!Phaser.Geom.Rectangle.Overlaps(hitRect, cr)) continue;
+      const [dmg, isCrit] = this.rollDamage(dmgBase, 0);
+      chest.takeDamage(dmg);
+      this.floatText.showDamage(chest.x, chest.y, dmg, isCrit);
+    }
+  }
+
+  private hitChestsCircle(circle: Phaser.Geom.Circle, dmgBase: number): void {
+    for (const chest of this.chests) {
+      if (!chest.active) continue;
+      if (!Phaser.Geom.Circle.Contains(circle, chest.x, chest.y)) continue;
+      const [dmg, isCrit] = this.rollDamage(dmgBase, 0);
+      chest.takeDamage(dmg);
+      this.floatText.showDamage(chest.x, chest.y, dmg, isCrit);
+    }
+  }
+
+  private spawnChestLoot(x: number, y: number): void {
+    const bc = balance.coins;
+    const loot = balance.chest.loot;
+    const COIN_SZ = 12;
+    const jitter  = Math.floor(TILE_S * 0.3);
+
+    const spawnCoin = (frame: number, value: number) => {
+      const wx = x + Phaser.Math.Between(-jitter, jitter);
+      const wy = y + Phaser.Math.Between(-jitter, jitter);
+      const s = this.coins.create(wx, wy, 'icons', frame) as Phaser.Physics.Arcade.Sprite;
+      s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(wy + 16).refreshBody();
+      (s.body as Phaser.Physics.Arcade.StaticBody).setSize(COIN_SZ, COIN_SZ);
+      s.setData('value', value);
+    };
+
+    const count = Phaser.Math.Between(loot.silverMin, loot.silverMax);
+    for (let i = 0; i < count; i++) spawnCoin(bc.silverFrame, bc.silverValue);
+    if (Math.random() < loot.goldChance) spawnCoin(bc.goldFrame, bc.goldValue);
+
+    // Potion
+    if (Math.random() < loot.potionChance) {
+      const bp = balance.potions;
+      const item = bp.items[Phaser.Math.Between(0, bp.items.length - 1)];
+      const wx = x + Phaser.Math.Between(-jitter, jitter);
+      const wy = y + Phaser.Math.Between(-jitter, jitter);
+      const s = this.potions.create(wx, wy, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
+      s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(wy + 16).refreshBody();
+      (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
+      s.setData('heal', item.heal);
+    }
+  }
+
   private hitEnemiesRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number): void {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as BaseEnemy;
@@ -526,13 +597,13 @@ export class GameScene extends Phaser.Scene {
   // Attack 1 — basic swing (LMB / Space)
   private processAttack1(): void {
     const hit = this.player.tryAttack1();
-    if (hit) this.hitEnemiesRect(hit, balance.player.attack);
+    if (hit) { this.hitEnemiesRect(hit, balance.player.attack); this.hitChestsRect(hit, balance.player.attack); }
   }
 
   // Attack 2 — lunge (RMB / Q)
   private processAttack2(): void {
     const hit = this.player.tryAttack2();
-    if (hit) this.hitEnemiesRect(hit, balance.player.attack2.damage);
+    if (hit) { this.hitEnemiesRect(hit, balance.player.attack2.damage); this.hitChestsRect(hit, balance.player.attack2.damage); }
   }
 
   // Attack 3 — arrow shot (E), aimed at mouse but clamped to facing half

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { BaseEnemy } from '../entities/BaseEnemy';
+import { Chest } from '../entities/Chest';
 import { TILE_S } from '../utils/constants';
 import { calcDamage } from '../utils/combat';
 import { TILE_WALL } from './DungeonGenerator';
@@ -24,6 +25,7 @@ interface Arrow {
 export class ArrowSystem {
   private scene:   Phaser.Scene;
   private enemies: Phaser.Physics.Arcade.Group;
+  private chests:  Chest[] = [];
   private tiles:   number[][];
   private arrows:  Arrow[] = [];
   private cooldown = 0;
@@ -40,6 +42,8 @@ export class ArrowSystem {
     this.tiles    = tiles;
     this.onDamage = onDamage;
   }
+
+  setChests(chests: Chest[]): void { this.chests = chests; }
 
   getCooldownPct(): number {
     return this.cooldown > 0 ? Math.min(1, this.cooldown / balance.player.attack3.cooldown) : 0;
@@ -110,7 +114,25 @@ export class ArrowSystem {
         }
       }
 
-      if (hitEnemy || hitWall || a.traveled >= MAX_RANGE) {
+      // Chest hit check
+      let hitChest = false;
+      if (!hitEnemy) {
+        for (const chest of this.chests) {
+          if (!chest.active) continue;
+          const dist = Phaser.Math.Distance.Between(a.sprite.x, a.sprite.y, chest.x, chest.y);
+          if (dist < 20) {
+            const isCrit = Math.random() < balance.player.critChance;
+            const mult   = isCrit ? balance.player.critMultiplier : 1;
+            const dmg    = calcDamage(balance.player.attack3.damage * mult, 0);
+            chest.takeDamage(dmg);
+            this.onDamage(chest.x, chest.y, dmg, isCrit);
+            hitChest = true;
+            break;
+          }
+        }
+      }
+
+      if (hitEnemy || hitChest || hitWall || a.traveled >= MAX_RANGE) {
         this.poof(a.sprite.x, a.sprite.y);
         a.sprite.destroy();
         this.arrows.splice(i, 1);

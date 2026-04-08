@@ -59,6 +59,9 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet('vampire-attack', 'assets/enemies/Enemy_Animations_Set/enemies-vampire_attack.png',      { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('vampire-hit',    'assets/enemies/Enemy_Animations_Set/enemies-vampire_take_damage.png', { frameWidth: 32, frameHeight: 32 });
 
+    // Chest — 4 frames 16×16 (closed → open)
+    this.load.spritesheet('chest', 'assets/props/chest_01.png', { frameWidth: 16, frameHeight: 16 });
+
     // Props: stair (peaks), torch
     const torchBase = 'assets/props/torch/torch_';
     this.load.image('_torch1', `${torchBase}1.png`);
