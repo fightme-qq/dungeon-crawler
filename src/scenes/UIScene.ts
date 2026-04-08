@@ -93,21 +93,21 @@ export class UIScene extends Phaser.Scene {
       .setScale(HP_SCALE).setOrigin(0, 0)
       .setScrollFactor(0).setDepth(101);
 
-    // Overlay анимации поверх бара (damage / heal)
+    // Overlay анимации поверх бара (damage / heal) — ADD blend чтобы не скрывать бар
     this.hpBarDamage = this.add.sprite(PAD, PAD, 'hp-damage', 0)
-      .setScale(HP_SCALE).setOrigin(0, 0)
-      .setScrollFactor(0).setDepth(103).setVisible(false);
+      .setScale(HP_SCALE).setOrigin(0, 0).setScrollFactor(0).setDepth(103)
+      .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this.hpBarHeal = this.add.sprite(PAD, PAD, 'hp-heal', 0)
-      .setScale(HP_SCALE).setOrigin(0, 0)
-      .setScrollFactor(0).setDepth(103).setVisible(false);
+      .setScale(HP_SCALE).setOrigin(0, 0).setScrollFactor(0).setDepth(103)
+      .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this.hpBarDamage.on('animationcomplete', () => this.hpBarDamage.setVisible(false));
     this.hpBarHeal.on('animationcomplete',   () => this.hpBarHeal.setVisible(false));
 
-    // Текст HP по центру сердечка (сердечко x=0..15 → центр x≈8 → display PAD+32)
+    // Текст HP — depth 104, выше overlays
     this.hpText = this.add.text(PAD + 8 * HP_SCALE, PAD + BAR_H / 2, `${MAX_HP}`, {
       fontSize: '14px', fontStyle: 'bold', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(104);
 
     // Coin display — below HP bar (icons hidden until player has that coin type)
     this.coinY = PAD + BAR_H + 6;
