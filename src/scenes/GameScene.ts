@@ -167,13 +167,17 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // ── Chest — spawn in start room ───────────────────────────
+    // ── Chests — 1-4 per floor, in random rooms ───────────────
     {
       this.chests = [];
-      const startRoom = dungeon.rooms.find(r => r.type === 'start');
-      if (startRoom) {
-        const cx = (startRoom.x + Math.floor(startRoom.w / 2)) * TILE_S + TILE_S / 2;
-        const cy = (startRoom.y + Math.floor(startRoom.h / 2)) * TILE_S + TILE_S / 2 + TILE_S;
+      const bc = balance.chest;
+      const count = Phaser.Math.Between(bc.spawnMin, bc.spawnMax);
+      const eligibleRooms = [...dungeon.rooms];
+      Phaser.Utils.Array.Shuffle(eligibleRooms);
+      for (let i = 0; i < Math.min(count, eligibleRooms.length); i++) {
+        const room = eligibleRooms[i];
+        const cx = (room.x + Math.floor(room.w / 2)) * TILE_S + TILE_S / 2;
+        const cy = (room.y + Math.floor(room.h / 2)) * TILE_S + TILE_S / 2 + TILE_S;
         const chest = new Chest(this, cx, cy);
         chest.onOpen = (ox, oy) => this.spawnChestLoot(ox, oy);
         this.chests.push(chest);
@@ -381,15 +385,15 @@ export class GameScene extends Phaser.Scene {
         }
       };
 
-      // Silver: 4-9 per floor
-      const silverCount = Phaser.Math.Between(4, 9);
+      // Silver: 2-4 per floor (halved from 4-9)
+      const silverCount = Phaser.Math.Between(2, 4);
       for (let i = 0; i < silverCount; i++) tryDrop(bc.silverFrame, bc.silverValue);
 
-      // Gold: ~10x rarer than silver → p≈0.5 per floor
-      if (Math.random() < 0.5) tryDrop(bc.goldFrame, bc.goldValue);
+      // Gold: p≈0.25 per floor (halved from 0.5)
+      if (Math.random() < 0.25) tryDrop(bc.goldFrame, bc.goldValue);
 
-      // Red: ~100x rarer than silver → p≈0.05 per floor
-      if (Math.random() < 0.05) tryDrop(bc.redFrame, bc.redValue);
+      // Red: p≈0.025 per floor (halved from 0.05)
+      if (Math.random() < 0.025) tryDrop(bc.redFrame, bc.redValue);
     }
     this.physics.add.overlap(this.player, this.coins, (_p, coin) => {
       const c = coin as Phaser.Physics.Arcade.Sprite;
@@ -403,7 +407,7 @@ export class GameScene extends Phaser.Scene {
     {
       const bp = balance.potions;
       const jitter = Math.floor(TILE_S * 0.3);
-      const count = Phaser.Math.Between(bp.spawnMin, bp.spawnMax);
+      const count = Phaser.Math.Between(Math.floor(bp.spawnMin / 2), Math.floor(bp.spawnMax / 2));
       for (let i = 0; i < count; i++) {
         const item = bp.items[Phaser.Math.Between(0, bp.items.length - 1)];
         for (let attempt = 0; attempt < 20; attempt++) {
@@ -530,8 +534,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnChestLoot(x: number, y: number): void {
-    const bc = balance.coins;
+    const cc   = balance.coins;
     const loot = balance.chest.loot;
+    const bp   = balance.potions;
     const COIN_SZ = 12;
     const jitter  = Math.floor(TILE_S * 0.3);
 
@@ -544,13 +549,7 @@ export class GameScene extends Phaser.Scene {
       s.setData('value', value);
     };
 
-    const count = Phaser.Math.Between(loot.silverMin, loot.silverMax);
-    for (let i = 0; i < count; i++) spawnCoin(bc.silverFrame, bc.silverValue);
-    if (Math.random() < loot.goldChance) spawnCoin(bc.goldFrame, bc.goldValue);
-
-    // Potion
-    if (Math.random() < loot.potionChance) {
-      const bp = balance.potions;
+    const spawnPotion = () => {
       const item = bp.items[Phaser.Math.Between(0, bp.items.length - 1)];
       const wx = x + Phaser.Math.Between(-jitter, jitter);
       const wy = y + Phaser.Math.Between(-jitter, jitter);
@@ -558,7 +557,18 @@ export class GameScene extends Phaser.Scene {
       s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(wy + 16).refreshBody();
       (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
       s.setData('heal', item.heal);
-    }
+    };
+
+    // Coins
+    const silverCount = Phaser.Math.Between(loot.silverMin, loot.silverMax);
+    for (let i = 0; i < silverCount; i++) spawnCoin(cc.silverFrame, cc.silverValue);
+    if (Math.random() < loot.goldChance) spawnCoin(cc.goldFrame, cc.goldValue);
+    if (Math.random() < loot.redChance)  spawnCoin(cc.redFrame,  cc.redValue);
+
+    // Potions: 65% one, 15% two (independent rolls — first check two, then one)
+    const r = Math.random();
+    if (r < loot.potion2Chance) { spawnPotion(); spawnPotion(); }
+    else if (r < loot.potion1Chance) { spawnPotion(); }
   }
 
   private hitEnemiesRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number): void {

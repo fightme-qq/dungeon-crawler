@@ -106,13 +106,17 @@
     ]
   },
   "chest": {
-    "hp": 80,
+    "hpVariants": [150, 200, 300, 350],
     "scale": 2.5,
+    "spawnMin": 1,
+    "spawnMax": 4,
     "loot": {
-      "silverMin": 3,
-      "silverMax": 6,
+      "silverMin": 2,
+      "silverMax": 7,
       "goldChance": 0.4,
-      "potionChance": 0.5
+      "redChance": 0.02,
+      "potion1Chance": 0.65,
+      "potion2Chance": 0.15
     }
   },
   "trap": {

@@ -14,7 +14,8 @@ export class Chest extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this, true); // static body
 
-    this.hp = balance.chest.hp;
+    const variants = balance.chest.hpVariants;
+    this.hp = variants[Phaser.Math.Between(0, variants.length - 1)];
     const sc = balance.chest.scale;
     this.setScale(sc).setFrame(0);
     // Body on bottom half so player can walk "behind" the chest
