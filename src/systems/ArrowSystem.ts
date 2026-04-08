@@ -101,7 +101,7 @@ export class ArrowSystem {
         if (dist < hitR) {
           const isCrit = Math.random() < balance.player.critChance;
           const mult   = isCrit ? balance.player.critMultiplier : 1;
-          const dmg    = calcDamage(balance.player.attack * mult, enemy.getArmor());
+          const dmg    = calcDamage(balance.player.attack3.damage * mult, enemy.getArmor());
           const kb     = Phaser.Math.Angle.Between(a.sprite.x, a.sprite.y, enemy.x, enemy.y);
           enemy.takeDamage(dmg, Math.cos(kb) * enemy.getKnockbackForce(), Math.sin(kb) * enemy.getKnockbackForce());
           this.onDamage(enemy.x, enemy.y, dmg, isCrit);

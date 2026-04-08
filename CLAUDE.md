@@ -61,14 +61,38 @@ public/
 - НИКОГДА не хардкодить цифры в коде
 
 ## Боёвка
-- Реалтайм, но простая: нажал Space/ЛКМ = удар в направлении взгляда
-- Удар — хитбокс перед игроком на 1 фрейм
+- Реалтайм, 3 атаки игрока:
+  - LMB / Space — базовый удар (attack1), хитбокс перед игроком
+  - Q — рывок с ударом (attack2), dash + удлинённый хитбокс
+  - E — стрела (attack3), летит к мышке, clamp к facing-половине, дуга, КД 2 сек
 - Враги атакуют при контакте или на расстоянии 1 тайла
 - Формула урона: DamageTaken = BaseDamage / (1 + Armor / 100)
   - Функция calcDamage(baseDamage, armor) — только в src/utils/combat.ts
   - defense в balance.json = Armor в формуле
+- Крит: 5% шанс, ×2 урон. Параметры: balance.player.critChance / critMultiplier
 - Knockback при получении урона (маленький отброс)
 - Неуязвимость 0.5 сек после получения урона
+
+## Хит-детекция — ВАЖНО
+- Всегда используй `(enemy.body as Arcade.Body).center` и `halfWidth/halfHeight` — НЕ `enemy.x/y` и НЕ `displayWidth`
+- `displayWidth` у 100×100 спрайта при scale 2.5 = 250px — это не коллайдер!
+- Физическое тело (body.width, body.height) — единственный источник истины для попаданий
+
+## UI архитектура
+- UIScene — отдельная сцена поверх GameScene (запускается через `this.scene.launch('UIScene')`)
+- Данные передаются через `this.game.events.emit(...)` — не через прямые ссылки
+- HP бар: два слоя — пустой (frame 19) + заполненный (frame 0) с setCrop по текущему HP%
+  - setCrop в координатах источника (до scale): `FILL_SRC_START + FILL_SRC_W * pct`
+  - Overlay-анимации (damage/heal) тоже обрезаются тем же crop каждый кадр через `animationupdate`
+  - Blend mode ADD для overlays — не перекрывают бар, а добавляют яркость
+- Кулдауны Q/E: иконки в левом нижнем углу, pie-sweep по часовой стрелке
+  - GameScene.update() → `game.events.emit('abilityState', {qPct, ePct})`
+  - pct = 0 (готово), pct = 1 (только что использовано)
+
+## Ассеты — ограничения WebGL
+- WebGL не поддерживает текстуры шире 4096px — изображения типа images.png (4384px) НЕ грузить как spritesheet
+- Если нужна часть большого файла — извлекай нужные строки в отдельный PNG через Node.js (см. potions.png)
+- CrimsonFantasyGUI листы: 64×16 за кадр, лежат в assets/ui/CrimsonFantasyGUI/AnimationSheets/
 
 ## Команды
 - npm run dev — запуск дев-сервера
@@ -120,3 +144,12 @@ GameScene только создаёт и соединяет системы. Вс
 - НЕ хардкодь числа — только через balance.json
 - НЕ пиши логику врага в GameScene или EnemySpawner — только в классе врага
 - НЕ добавляй if/switch по типу врага нигде кроме SPAWN_TABLE
+- НЕ используй enemy.x/y или displayWidth для хит-детекции — только body.center и halfWidth
+- НЕ используй displayWidth как hitbox — спрайт может быть 250px, тело 14px
+- НЕ рисуй Graphics с координатами в мировом пространстве (x,y) и потом масштабируй — используй `add.graphics({x, y})` и рисуй локально от (0,0)
+- НЕ давай overlay-анимациям HP бара жить без setCrop — они перекроют весь бар
+
+## Деплой
+- Репозиторий: github.com/fightme-qq/dungeon-crawler
+- CI/CD: Netlify автоматически деплоит при каждом push в main
+- `git add . && git commit -m "..." && git push` — достаточно для публикации
