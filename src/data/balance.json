@@ -23,7 +23,8 @@
     "attack3": {
       "damage": 80,
       "cooldown": 2000,
-      "radius": 90
+      "radius": 90,
+      "shootDelay": 420
     }
   },
   "enemies": {

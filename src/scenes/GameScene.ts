@@ -537,23 +537,28 @@ export class GameScene extends Phaser.Scene {
 
   // Attack 3 — arrow shot (E), aimed at mouse but clamped to facing half
   private processAttack3(): void {
-    // tryAttack3 handles cooldown gate + plays the bow animation
-    if (!this.player.tryAttack3()) return;
-
     const cam     = this.cameras.main;
     const pointer = this.input.activePointer;
     const worldX  = pointer.x / cam.zoom + cam.worldView.x;
     const worldY  = pointer.y / cam.zoom + cam.worldView.y;
     const mouseAngle = Phaser.Math.Angle.Between(this.player.x, this.player.y, worldX, worldY);
 
-    // Flip toward mouse, then clamp to that facing half
+    // Flip toward mouse before animation starts
     const shootRight = worldX >= this.player.x;
     this.player.setFacing(shootRight);
+
+    // tryAttack3 handles cooldown gate + plays the bow animation
+    if (!this.player.tryAttack3()) return;
+
     const halfDir = shootRight ? 0 : Math.PI;
     const diff    = Phaser.Math.Angle.Wrap(mouseAngle - halfDir);
     const clamped = halfDir + Phaser.Math.Clamp(diff, -Math.PI / 2, Math.PI / 2);
 
-    this.arrowSystem.shoot(this.player.x, this.player.y, clamped);
+    // Spawn arrow after release frame
+    this.time.delayedCall(balance.player.attack3.shootDelay, () => {
+      if (!this.player.active) return;
+      this.arrowSystem.shoot(this.player.x, this.player.y, clamped);
+    });
   }
 
   // ── Floor / Game Over ─────────────────────────────────────────
