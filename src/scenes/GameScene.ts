@@ -494,8 +494,12 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as BaseEnemy;
       if (!enemy.active) continue;
-      const half = enemy.displayWidth / 2;
-      const er = new Phaser.Geom.Rectangle(enemy.x - half, enemy.y - half, enemy.displayWidth, enemy.displayHeight);
+      const body = enemy.body as Phaser.Physics.Arcade.Body;
+      const er = new Phaser.Geom.Rectangle(
+        body.center.x - body.halfWidth,
+        body.center.y - body.halfHeight,
+        body.width, body.height,
+      );
       if (!Phaser.Geom.Rectangle.Overlaps(hitRect, er)) continue;
       const [dmg, isCrit] = this.rollDamage(dmgBase, enemy.getArmor());
       const kb  = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
@@ -509,7 +513,8 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as BaseEnemy;
       if (!enemy.active) continue;
-      if (!Phaser.Geom.Circle.Contains(circle, enemy.x, enemy.y)) continue;
+      const body = enemy.body as Phaser.Physics.Arcade.Body;
+      if (!Phaser.Geom.Circle.Contains(circle, body.center.x, body.center.y)) continue;
       const [dmg, isCrit] = this.rollDamage(dmgBase, enemy.getArmor());
       const kb  = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
       const ekb = enemy.getKnockbackForce();

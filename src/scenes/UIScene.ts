@@ -42,6 +42,7 @@ export class UIScene extends Phaser.Scene {
   private hpBarFill!:   Phaser.GameObjects.Sprite; // кропается по HP%
   private hpBarDamage!: Phaser.GameObjects.Sprite; // overlay — анимация урона
   private hpBarHeal!:   Phaser.GameObjects.Sprite; // overlay — анимация хила
+  private hpCropW      = FILL_SRC_START + FILL_SRC_W; // текущая ширина crop в src px
   private hpText!:    Phaser.GameObjects.Text;
   private floorText!: Phaser.GameObjects.Text;
   private prevHp      = MAX_HP;
@@ -100,6 +101,8 @@ export class UIScene extends Phaser.Scene {
     this.hpBarHeal = this.add.sprite(PAD, PAD, 'hp-heal', 0)
       .setScale(HP_SCALE).setOrigin(0, 0).setScrollFactor(0).setDepth(103)
       .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    this.hpBarDamage.on('animationupdate', () => this.hpBarDamage.setCrop(0, 0, this.hpCropW, FILL_SRC_H));
+    this.hpBarHeal.on('animationupdate',   () => this.hpBarHeal.setCrop(0, 0, this.hpCropW, FILL_SRC_H));
     this.hpBarDamage.on('animationcomplete', () => this.hpBarDamage.setVisible(false));
     this.hpBarHeal.on('animationcomplete',   () => this.hpBarHeal.setVisible(false));
 
@@ -204,9 +207,11 @@ export class UIScene extends Phaser.Scene {
   // ── Event handlers ────────────────────────────────
 
   private onHpChanged(current: number, max: number) {
-    const pct   = Math.max(0, Math.min(1, current / max));
-    const cropW = FILL_SRC_START + FILL_SRC_W * pct;
-    this.hpBarFill.setCrop(0, 0, cropW, FILL_SRC_H);
+    const pct        = Math.max(0, Math.min(1, current / max));
+    this.hpCropW     = FILL_SRC_START + FILL_SRC_W * pct;
+    this.hpBarFill.setCrop(0, 0, this.hpCropW, FILL_SRC_H);
+    this.hpBarDamage.setCrop(0, 0, this.hpCropW, FILL_SRC_H);
+    this.hpBarHeal.setCrop(0, 0, this.hpCropW, FILL_SRC_H);
     this.hpText.setText(`${Math.round(current)}`);
 
     if (current < this.prevHp) {
