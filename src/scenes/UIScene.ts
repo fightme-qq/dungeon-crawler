@@ -147,6 +147,13 @@ export class UIScene extends Phaser.Scene {
       bg.strokeCircle(AB_QX, AB_Y, AB_R);
       bg.strokeCircle(AB_EX, AB_Y, AB_R);
 
+      // Ability icons inside circles (depth 200 — above bg, below overlay)
+      const abIconSz = 40;
+      this.add.image(AB_QX, AB_Y, 'icons', 1122)
+        .setDisplaySize(abIconSz, abIconSz).setScrollFactor(0).setDepth(200).setAlpha(0.75);
+      this.add.image(AB_EX, AB_Y, 'icons', 1124)
+        .setDisplaySize(abIconSz, abIconSz).setScrollFactor(0).setDepth(200).setAlpha(0.75);
+
       // Cooldown overlay gfx (pie sweep drawn in update)
       this.abGfx = this.add.graphics().setScrollFactor(0).setDepth(201);
 
