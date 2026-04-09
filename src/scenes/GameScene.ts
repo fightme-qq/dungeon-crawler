@@ -183,7 +183,7 @@ export class GameScene extends Phaser.Scene {
       const tx = tc * TILE_S + TILE_S / 2;
       const ty = tr * TILE_S + TILE_S / 2;
       const sprite = this.add.sprite(tx, ty, 'trap', 0);
-      sprite.setScale(2.5).setDepth(0).setVisible(true);
+      sprite.setScale(2.5).setDepth(1).setVisible(true);
       this.traps.push({ sprite, timer: Phaser.Math.Between(500, td.cooldown), firing: false });
     };
 
@@ -344,6 +344,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
       occupiedTiles.add(`${col},${row}`);
+      occupiedTiles.add(`${col},${row + 1}`); // chest center is visually one tile lower
       const cx = col * TILE_S + TILE_S / 2;
       const cy = row * TILE_S + TILE_S / 2 + TILE_S;
       const chest = new Chest(this, cx, cy);
@@ -368,7 +369,7 @@ export class GameScene extends Phaser.Scene {
         const wx = col * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
         const wy = row * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
         const s = this.coins.create(wx, wy, 'icons', frame) as Phaser.Physics.Arcade.Sprite;
-        s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(wy + 16).refreshBody();
+        s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(1).refreshBody();
         (s.body as Phaser.Physics.Arcade.StaticBody).setSize(COIN_SZ, COIN_SZ);
         s.setData('value', value);
       };
@@ -418,7 +419,7 @@ export class GameScene extends Phaser.Scene {
             const wx = col * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
             const wy = row * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
             const s = this.potions.create(wx, wy, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
-            s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(wy + 16).refreshBody();
+            s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(1).refreshBody();
             (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
             s.setData('heal', item.heal);
             break;
@@ -547,7 +548,7 @@ export class GameScene extends Phaser.Scene {
     const x = wx + Phaser.Math.Between(-jitter, jitter);
     const y = wy + Phaser.Math.Between(-jitter, jitter);
     const s = this.potions.create(x, y, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
-    s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(y + 16).refreshBody();
+    s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(1).refreshBody();
     (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
     s.setData('heal', item.heal);
   }
@@ -558,7 +559,7 @@ export class GameScene extends Phaser.Scene {
     const x = wx + Phaser.Math.Between(-jitter, jitter);
     const y = wy + Phaser.Math.Between(-jitter, jitter);
     const s = this.coins.create(x, y, 'icons', frame) as Phaser.Physics.Arcade.Sprite;
-    s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(y + 16).refreshBody();
+    s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(1).refreshBody();
     (s.body as Phaser.Physics.Arcade.StaticBody).setSize(COIN_SZ, COIN_SZ);
     s.setData('value', value);
   }
@@ -574,7 +575,7 @@ export class GameScene extends Phaser.Scene {
       const wx = x + Phaser.Math.Between(-jitter, jitter);
       const wy = y + Phaser.Math.Between(-jitter, jitter);
       const s = this.coins.create(wx, wy, 'icons', frame) as Phaser.Physics.Arcade.Sprite;
-      s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(wy + 16).refreshBody();
+      s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(1).refreshBody();
       (s.body as Phaser.Physics.Arcade.StaticBody).setSize(COIN_SZ, COIN_SZ);
       s.setData('value', value);
     };
@@ -584,7 +585,7 @@ export class GameScene extends Phaser.Scene {
       const wx = x + Phaser.Math.Between(-jitter, jitter);
       const wy = y + Phaser.Math.Between(-jitter, jitter);
       const s = this.potions.create(wx, wy, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
-      s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(wy + 16).refreshBody();
+      s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(1).refreshBody();
       (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
       s.setData('heal', item.heal);
     };

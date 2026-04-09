@@ -195,12 +195,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const hy = this.y + dy * b2.hitboxOffset;
 
     this.showFlash(hx, hy, b2.hitboxSize, b2.hitboxSize * 2, 0xffaa00);
-    return new Phaser.Geom.Rectangle(
-      hx - b2.hitboxSize / 2,
-      hy - b2.hitboxSize,
-      b2.hitboxSize,
-      b2.hitboxSize * 2,
-    );
+
+    // Swept AABB from body center to strike endpoint — hits enemies at any range
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const half = b2.hitboxSize / 2;
+    const minX = Math.min(body.center.x, hx) - half;
+    const minY = Math.min(body.center.y, hy) - half;
+    const maxX = Math.max(body.center.x, hx) + half;
+    const maxY = Math.max(body.center.y, hy) + half;
+    return new Phaser.Geom.Rectangle(minX, minY, maxX - minX, maxY - minY);
   }
 
   // ── Attack 3 — spin AOE (E) ─────────────────────────────────
