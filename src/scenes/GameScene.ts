@@ -449,6 +449,7 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('UIScene');
     this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
     this.game.events.emit('floorChanged', this.floor);
+    this.game.events.emit('playerStatsChanged', { attack: balance.player.attack });
     const dungeonData = { tiles, mapWidth: width, mapHeight: height, stairTileX: stairPos.x, stairTileY: stairPos.y };
     this.registry.set('dungeonData', dungeonData);
     this.game.events.emit('dungeonReady', dungeonData);
@@ -514,9 +515,11 @@ export class GameScene extends Phaser.Scene {
   // ── Attacks ───────────────────────────────────────────────────
 
   private rollDamage(dmgBase: number, armor: number): [number, boolean] {
-    const isCrit = Math.random() < balance.player.critChance;
-    const mult   = isCrit ? balance.player.critMultiplier : 1;
-    return [calcDamage(dmgBase * mult, armor), isCrit];
+    const isCrit  = Math.random() < balance.player.critChance;
+    const mult    = isCrit ? balance.player.critMultiplier : 1;
+    const v       = balance.player.damageVariance;
+    const vary    = 1 - v + Math.random() * v * 2; // [1-v .. 1+v]
+    return [Math.round(calcDamage(dmgBase * mult * vary, armor)), isCrit];
   }
 
   private hitChestsRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number): void {

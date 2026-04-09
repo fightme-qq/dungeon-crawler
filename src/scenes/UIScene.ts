@@ -55,6 +55,9 @@ export class UIScene extends Phaser.Scene {
   private abCd = { q: 0, e: 0 };
   private abGfx!: Phaser.GameObjects.Graphics;
 
+  private statText!: Phaser.GameObjects.Text;
+  private statIcon!: Phaser.GameObjects.Image;
+
   // Minimap data
   private tiles:    number[][] = [];
   private revealed: boolean[][] = []; // cumulative, never resets mid-floor
@@ -169,6 +172,19 @@ export class UIScene extends Phaser.Scene {
     this.visibleGfx  = this.add.graphics().setScrollFactor(0).setDepth(112);
     this.unitGfx     = this.add.graphics().setScrollFactor(0).setDepth(113);
 
+    // Damage stat — above minimap: "[attack] ⚔"
+    {
+      const iconSz  = 20;
+      const statY   = MM_Y - PAD - iconSz / 2;
+      const iconX   = MM_X + MM_W - iconSz / 2;
+      this.statIcon = this.add.image(iconX, statY, 'icons', 6171)
+        .setDisplaySize(iconSz, iconSz).setScrollFactor(0).setDepth(100);
+      this.statText = this.add.text(iconX - iconSz / 2 - 4, statY, '100', {
+        fontSize: '13px', fontStyle: 'bold', color: '#ffdd88',
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
+    }
+
     this.onFloorChanged(this.registry.get('floor') ?? 1);
     this.onHpChanged(this.registry.get('playerHp') ?? MAX_HP, MAX_HP);
     const dungeonData = this.registry.get('dungeonData');
@@ -179,15 +195,17 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('dungeonReady',    this.onDungeonReady,  this);
     this.game.events.on('playerMoved',     this.onPlayerMoved,   this);
     this.game.events.on('coinsChanged',    this.onCoinsChanged,  this);
-    this.game.events.on('abilityState',    this.onAbilityState,  this);
+    this.game.events.on('abilityState',       this.onAbilityState,    this);
+    this.game.events.on('playerStatsChanged', this.onStatsChanged,    this);
 
     this.events.once('shutdown', () => {
-      this.game.events.off('playerHpChanged', this.onHpChanged,     this);
-      this.game.events.off('floorChanged',    this.onFloorChanged,  this);
-      this.game.events.off('dungeonReady',    this.onDungeonReady,  this);
-      this.game.events.off('playerMoved',     this.onPlayerMoved,   this);
-      this.game.events.off('coinsChanged',    this.onCoinsChanged,  this);
-      this.game.events.off('abilityState',    this.onAbilityState,  this);
+      this.game.events.off('playerHpChanged',    this.onHpChanged,     this);
+      this.game.events.off('floorChanged',       this.onFloorChanged,  this);
+      this.game.events.off('dungeonReady',       this.onDungeonReady,  this);
+      this.game.events.off('playerMoved',        this.onPlayerMoved,   this);
+      this.game.events.off('coinsChanged',       this.onCoinsChanged,  this);
+      this.game.events.off('abilityState',       this.onAbilityState,  this);
+      this.game.events.off('playerStatsChanged', this.onStatsChanged,  this);
     });
   }
 
@@ -371,6 +389,10 @@ export class UIScene extends Phaser.Scene {
   private onAbilityState(data: { qPct: number; ePct: number }) {
     this.abCd.q = data.qPct;
     this.abCd.e = data.ePct;
+  }
+
+  private onStatsChanged(data: { attack: number }) {
+    this.statText?.setText(String(data.attack));
   }
 
   /** Clockwise pie-sweep cooldown overlay for Q and E ability icons. */
