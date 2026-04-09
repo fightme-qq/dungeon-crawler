@@ -1,155 +1,136 @@
 # Dungeon Crawler — Phaser 3
 
-## Что это
-2D top-down dungeon crawler на Phaser 3. Реалтайм движение и боёвка.
-Процедурная генерация комнат. Один этаж = несколько комнат + коридоры.
-Убил врагов → нашёл лестницу → следующий этаж.
+## Стек и структура
+- Phaser 3 + TypeScript + Vite
+- Тайл: 16×16px, масштаб ×3 = 48px на экране
+- Деплой: `git push` → Netlify автодеплой → github.com/fightme-qq/dungeon-crawler
 
-## Стек
-- Phaser 3 (движок)
-- TypeScript
-- Vite (сборка)
-- Ассеты: Pixel_Poem "2D Pixel Dungeon Asset Pack" (16x16 пиксели)
-
-## Структура проекта
+```
 src/
-  scenes/          — BootScene (загрузка), GameScene (геймплей), UIScene (HUD)
-  entities/        — Player.ts, BaseEnemy.ts, конкретные враги (Skeleton, Vampire, Orc)
-  systems/         — DungeonGenerator, EnemySpawner, TrapSystem, LootSystem, AttackResolver
-  utils/           — helpers, constants, combat.ts
-  data/            — balance.json (ВСЯ числовая балансировка тут)
-public/
-  assets/
-    tiles/         — тайлсеты (пол, стены)
-    characters/    — спрайты игрока
-    enemies/       — спрайты врагов
-    props/         — объекты (сундуки, факелы, лестницы)
-    ui/            — элементы интерфейса
-
-## Размер тайла
-16x16 пикселей. Масштаб отображения x3 (48px на экране).
-Всё кратно 16.
-
-## Ассеты Pixel_Poem — ВАЖНО
-- Кадры анимаций в ОТДЕЛЬНЫХ файлах (не спрайтшиты!)
-- Загрузка: используй Phaser spritesheet ИЛИ собери кадры в atlas
-- Имена файлов: {action}_{direction}_{frame}.png
-- Перед работой с ассетами — прочитай содержимое public/assets/ и разберись в именовании
-
-## Depth Sorting (заход за объекты) — КРИТИЧЕСКИ ВАЖНО
-Это ГЛАВНАЯ визуальная механика. Игрок должен корректно заходить
-за объекты (столбы, сундуки, пропсы):
-
-1. Все спрайты (игрок, враги, пропсы) используют depth = sprite.y + sprite.height
-2. В каждом update() вызывай: sprite.setDepth(sprite.y + sprite.height)
-3. Стены и пол — фиксированная глубина (стены = 0, пол = -1)
-4. Объекты с "телом" (сундуки, столбы): коллайдер только на нижнюю часть
-5. НИКОГДА не ставь фиксированный depth на движущиеся объекты
-
-## Коллизии
-- Стены: полный тайл 16x16, body на весь тайл
-- Пропсы (сундуки, столбы): body ТОЛЬКО на нижнюю половину (8px)
-  Это позволяет игроку визуально заходить ЗА объект сверху
-- Игрок: body меньше спрайта — примерно 10x8, смещён к ногам
-- Враги: аналогично игроку
+  scenes/    — BootScene, GameScene, UIScene
+  entities/  — Player, BaseEnemy, Skeleton, Vampire, Orc, Chest
+  systems/   — DungeonGenerator, ArrowSystem, FloatTextSystem
+  utils/     — constants.ts, combat.ts
+  data/      — balance.json  ← ВСЕ числа только здесь
+public/assets/
+  tiles/     — тайлсеты
+  enemies/   — спрайты врагов (+ slime.png)
+  props/     — сундуки, факелы, лестницы, dust_particles
+  characters/— спрайты игрока
+  ui/        — CrimsonFantasyGUI, potions.png, images.png
+```
 
 ## Балансировка
-ВСЯ числовая балансировка в data/balance.json:
-- player: speed, hp, attack, defense
-- enemies: {type}: hp, attack, defense, speed, aggroRange
-- dungeon: roomMin, roomMax, roomSizeMin, roomSizeMax
-- НИКОГДА не хардкодить цифры в коде
+**ВСЕ числа только в `data/balance.json`.** Никогда не хардкодить в коде.
+Структура: `player`, `enemies.{skeleton|orc|vampire}`, `chest`, `trap`, `dungeon`, `coins`, `potions`.
+- `dungeon.enemyCountWeights` — вероятности [0,1,2,3,4] врагов на комнату (индекс = кол-во)
+- `dungeon.enemyTypeWeights.{floor1|floor2|floor3plus}` — веса типов врагов по этажу
+
+## Depth Sorting
+Все движущиеся объекты (игрок, враги, сундуки) используют **`body.bottom`** как depth:
+```typescript
+this.setDepth((this.body as Phaser.Physics.Arcade.Body).bottom);
+```
+- Пол: depth = -1, стены: depth = 0
+- Пропсы (сундуки): static body только на нижнюю часть спрайта
+- **НИКОГДА** не используй `y + displayHeight` — у 100×100 спрайта при scale 2.5 это 250px, неверно
+
+## Коллизии
+- Стены: body на весь тайл
+- Пропсы/сундуки: body только на нижнюю половину — игрок визуально заходит за объект сверху
+- Игрок и враги: body меньше спрайта, смещён к ногам
+
+## Хит-детекция
+**Всегда используй `body.center` и `body.halfWidth/halfHeight`**, не `sprite.x/y` и не `displayWidth`.
+- `displayWidth` у 100×100 спрайта при scale 2.5 = 250px — это не коллайдер
+- Единственный источник истины — физическое тело (`body.width`, `body.height`)
 
 ## Боёвка
-- Реалтайм, 3 атаки игрока:
-  - LMB / Space — базовый удар (attack1), хитбокс перед игроком
-  - Q — рывок с ударом (attack2), dash + удлинённый хитбокс
-  - E — стрела (attack3), летит к мышке, clamp к facing-половине, дуга, КД 2 сек
-- Враги атакуют при контакте или на расстоянии 1 тайла
-- Формула урона: DamageTaken = BaseDamage / (1 + Armor / 100)
-  - Функция calcDamage(baseDamage, armor) — только в src/utils/combat.ts
-  - defense в balance.json = Armor в формуле
-- Крит: 5% шанс, ×2 урон. Параметры: balance.player.critChance / critMultiplier
-- Knockback при получении урона (маленький отброс)
-- Неуязвимость 0.5 сек после получения урона
+Три атаки игрока:
+- **LMB / Space** — базовый удар (attack1), хитбокс перед игроком
+- **Q** — рывок с ударом (attack2), dash + удлинённый хитбокс
+- **E** — стрела (attack3), летит к курсору, clamp к facing-половине, дуга
 
-## Хит-детекция — ВАЖНО
-- Всегда используй `(enemy.body as Arcade.Body).center` и `halfWidth/halfHeight` — НЕ `enemy.x/y` и НЕ `displayWidth`
-- `displayWidth` у 100×100 спрайта при scale 2.5 = 250px — это не коллайдер!
-- Физическое тело (body.width, body.height) — единственный источник истины для попаданий
+Формула урона: `DamageTaken = BaseDamage / (1 + Armor / 100)` — только через `calcDamage()` в `utils/combat.ts`.
+Крит: шанс и множитель из `balance.json`.
 
-## UI архитектура
-- UIScene — отдельная сцена поверх GameScene (запускается через `this.scene.launch('UIScene')`)
-- Данные передаются через `this.game.events.emit(...)` — не через прямые ссылки
-- HP бар: два слоя — пустой (frame 19) + заполненный (frame 0) с setCrop по текущему HP%
-  - setCrop в координатах источника (до scale): `FILL_SRC_START + FILL_SRC_W * pct`
-  - Overlay-анимации (damage/heal) тоже обрезаются тем же crop каждый кадр через `animationupdate`
-  - Blend mode ADD для overlays — не перекрывают бар, а добавляют яркость
-- Кулдауны Q/E: иконки в левом нижнем углу, pie-sweep по часовой стрелке
-  - GameScene.update() → `game.events.emit('abilityState', {qPct, ePct})`
-  - pct = 0 (готово), pct = 1 (только что использовано)
+## Архитектура
 
-## Ассеты — ограничения WebGL
-- WebGL не поддерживает текстуры шире 4096px — изображения типа images.png (4384px) НЕ грузить как spritesheet
-- Если нужна часть большого файла — извлекай нужные строки в отдельный PNG через Node.js (см. potions.png)
-- CrimsonFantasyGUI листы: 64×16 за кадр, лежат в assets/ui/CrimsonFantasyGUI/AnimationSheets/
+### GameScene — оркестратор
+Создаёт и соединяет системы. Бизнес-логика — в отдельных классах.
+> Сейчас: спавн врагов, ловушек и лута живёт inline в GameScene — это технический долг.
 
-## Команды
-- npm run dev — запуск дев-сервера
-- npm run build — сборка
-
-## Архитектура систем — ОБЯЗАТЕЛЬНО СОБЛЮДАТЬ
-
-### GameScene — тонкий оркестратор
-GameScene только создаёт и соединяет системы. Вся логика — в отдельных классах.
-НЕ добавляй бизнес-логику прямо в GameScene.
+### Спавн врагов
+- **Количество на комнату** — вероятностный выбор по `dungeon.enemyCountWeights`:
+  индекс массива = кол-во врагов, значение = вес (не обязаны суммироваться в 100)
+- **Тип врага** — зависит от этажа (`dungeon.enemyTypeWeights`):
+  - floor 1: только скелеты
+  - floor 2: скелеты + вампиры
+  - floor 3+: скелеты + вампиры + орки
+- Веса — в `balance.json`, логика выбора — только в `EnemySpawner`
 
 ### Добавление нового врага
-1. Создать `src/entities/NewEnemy.ts` — extends BaseEnemy
-2. В конструкторе вызвать `this.setupAnimations('prefix')`
-3. Добавить запись в `SPAWN_TABLE` в `EnemySpawner.ts` (одна строка: ctor + weight + minFloor)
-4. Добавить секцию в `balance.json` с ТОЛЬКО числами (hp, armor, speed, spawnWeight и т.д.)
-5. Загрузить спрайты в `BootScene.ts`, зарегистрировать анимации
-6. Уникальная механика врага — ТОЛЬКО внутри его класса (override preUpdate или новый метод)
+1. `src/entities/NewEnemy.ts` — extends BaseEnemy
+2. В конструкторе: `this.setupAnimations('prefix')`
+3. Секция в `balance.json` с числами (hp, armor, speed, knockbackResist и т.д.)
+4. Загрузка спрайтов и анимаций в `BootScene.ts`
+5. Добавить в `dungeon.enemyTypeWeights` нужных этажей в balance.json
+6. Добавить в `EnemySpawner.pickType()` новый `[NewEnemy, w.newEnemy]` entry
+7. Уникальная механика — только внутри класса, override `preUpdate`
 
-### BaseEnemy — расширяемая база
-- `setupAnimations(prefix)` — стандартное именование анимаций для всех врагов
-- `takeDamage`, `setPlayer`, `setTiles`, `setRoom` — общий контракт, не ломать
-- Уникальное поведение: переопределяй `preUpdate` с вызовом `super.preUpdate(time, delta)`
-- Уникальные атаки (дистанционные, AOE, спавн миньонов): добавляй в подкласс, не в BaseEnemy
+### Масштабирование по этажам (запланировано)
+Враги должны становиться сильнее с каждым этажом. Планируемая архитектура:
+- Формула: `hp * (1 + scalingHpPerFloor * (floor-1))`, аналогично для `attack`
+- Коэффициенты `scalingHpPerFloor`, `scalingAtkPerFloor` — в `balance.json`
+- Реализация через `EnemyFactory.create(type, x, y, floor)` — враг получает уже посчитанные stats
+- `BaseEnemy` принимает `statOverrides` объект, не знает про этажи
 
-### EnemySpawner — weight-based таблица
-- `SPAWN_TABLE` — единственное место где перечислены все типы врагов
-- `weight` — относительный вес (не проценты), `minFloor` — с какого этажа появляется
-- НЕ добавляй if-цепочки или switch по типу врага
+### Прокачка игрока (запланировано, числовая)
+После каждого этажа игрок выбирает улучшения. Планируемая архитектура:
+- `RunState` — singleton-модуль `src/systems/RunState.ts`, хранит состояние всего забега:
+  `{ floor, coins, playerStats, upgrades[] }`
+- `playerStats` — копия base stats из balance.json, мутируется апгрейдами
+- `Player` читает stats из `RunState`, не из balance.json напрямую
+- `UpgradeScene` — новая сцена между этажами, предлагает 2–3 апгрейда на выбор
+- Апгрейды описаны в `balance.json` как список `{ stat, flat?, percent? }`
 
-### FSM в BaseEnemy — таймер как инвариант
-- Состояния: PATROL → CHASE → ATTACK → HIT → RETURN
-- Смена состояний ТОЛЬКО через `enterState()`
-- НЕ используй boolean-флаги для состояний — используй таймеры и числа (-1 как sentinel)
+### BaseEnemy — FSM
+Состояния: `PATROL → CHASE → ATTACK → HIT → RETURN`
+- Переходы **только** через `enterState()`
+- `HIT` state = окно неуязвимости (таймер = `invincibilityDuration`)
+- `knockbackResist` множитель в `takeDamage` — орк 0.7, остальные 1.0
+- Не используй boolean-флаги для состояний
 
-### Системы
-- TrapSystem — вся логика ловушек (спавн паттернов, апдейт, урон)
-- LootSystem — монеты и любой будущий лут (предметы, зелья)
-- AttackResolver — хит-детекция и расчёт урона для всех атак игрока
-- Новая механика = новый файл в src/systems/, не расширение GameScene
+### UIScene
+- Запускается через `this.scene.launch('UIScene')`, данные только через `game.events.emit()`
+- HP бар: пустой спрайт (frame 19) + заполненный (frame 0) с `setCrop(0, 0, cropW, 16)`
+  - `cropW = FILL_SRC_START + FILL_SRC_W * pct` — в координатах источника до scale
+  - Overlay-анимации (damage/heal) требуют `setCrop` каждый кадр через `animationupdate` + blend mode ADD
+- Кулдауны Q/E: pie-sweep по часовой, `game.events.emit('abilityState', {qPct, ePct})`
 
-## АНТИПАТТЕРНЫ — НЕ ДЕЛАЙ ТАК
-- НЕ используй Phaser physics groups для depth sorting
-- НЕ ставь фиксированный setDepth() на движущиеся объекты
-- НЕ делай body на весь спрайт для пропсов
-- НЕ переписывай файлы целиком при мелких изменениях
-- НЕ добавляй новые npm-зависимости без спроса
-- НЕ меняй структуру папок без спроса
-- НЕ хардкодь числа — только через balance.json
-- НЕ пиши логику врага в GameScene или EnemySpawner — только в классе врага
-- НЕ добавляй if/switch по типу врага нигде кроме SPAWN_TABLE
-- НЕ используй enemy.x/y или displayWidth для хит-детекции — только body.center и halfWidth
-- НЕ используй displayWidth как hitbox — спрайт может быть 250px, тело 14px
-- НЕ рисуй Graphics с координатами в мировом пространстве (x,y) и потом масштабируй — используй `add.graphics({x, y})` и рисуй локально от (0,0)
-- НЕ давай overlay-анимациям HP бара жить без setCrop — они перекроют весь бар
+### Ассеты
+- WebGL лимит: текстуры шире 4096px не грузить как spritesheet (images.png = 4384px)
+- Нужна часть большого файла → извлекай через Node.js в отдельный PNG (пример: potions.png)
+- CrimsonFantasyGUI: 64×16px за кадр, `AnimationSheets/`
+- Перед работой с ассетами — читай `public/assets/` и разбирайся в именовании
 
-## Деплой
-- Репозиторий: github.com/fightme-qq/dungeon-crawler
-- CI/CD: Netlify автоматически деплоит при каждом push в main
-- `git add . && git commit -m "..." && git push` — достаточно для публикации
+### Graphics
+Рисуй локально от (0,0), позиционируй через `add.graphics({x, y})`:
+```typescript
+// Правильно:
+const g = this.add.graphics({ x: worldX, y: worldY });
+g.fillCircle(0, 0, radius);
+// Неверно — при scale сместится:
+const g = this.add.graphics();
+g.fillCircle(worldX, worldY, radius);
+```
+
+## Антипаттерны
+- Не хардкодить числа — только `balance.json`
+- Не использовать `displayWidth` как hitbox
+- Не использовать `y + displayHeight` для depth — только `body.bottom`
+- Не переписывать файлы целиком при точечных изменениях
+- Не добавлять npm-зависимости без спроса
+- Не менять структуру папок без спроса
+- Не писать логику врага в GameScene — только в классе врага
+- Не давать overlay-анимациям HP бара жить без `setCrop`

@@ -33,6 +33,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
 
   protected player!: Phaser.Physics.Arcade.Sprite;
   onDamagePlayer: ((atk: number, fromX: number, fromY: number) => void) | null = null;
+  onDeath:        ((x: number, y: number) => void) | null = null;
 
   private tiles: number[][] = [];
 
@@ -134,6 +135,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     if (this.aiState === AIState.HIT) return; // invincible
     this.hp -= amount;
     if (this.hp <= 0) {
+      this.onDeath?.(this.x, this.y);
       this.barBg.destroy();
       this.barFill.destroy();
       this.destroy();
@@ -252,8 +254,9 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     const distToWp = Phaser.Math.Distance.Between(this.x, this.y, this.waypointX, this.waypointY);
     if (now >= this.pathNextAt || distToWp < TILE_S * 0.5) {
       this.pathNextAt = now + 350;
-      const fx = Math.floor(this.x / TILE_S);
-      const fy = Math.floor(this.y / TILE_S);
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      const fx = Math.floor(body.center.x / TILE_S);
+      const fy = Math.floor(body.center.y / TILE_S);
       const tx = Math.floor(this.player.x / TILE_S);
       const ty = Math.floor(this.player.y / TILE_S);
       const wp = this.tiles.length ? nextStep(this.tiles, fx, fy, tx, ty, TILE_S) : null;
@@ -271,11 +274,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     const dy    = this.waypointY - this.y;
     const wdist = Math.sqrt(dx * dx + dy * dy);
     if (wdist < 2) { this.playAnim(this.animWalk); return; }
-
-    (this.body as Phaser.Physics.Arcade.Body).setVelocity(
-      (dx / wdist) * this.speed,
-      (dy / wdist) * this.speed,
-    );
+    this.setMoveVelocity(dx, dy, wdist, this.speed);
     this.playAnim(this.animWalk);
   }
 
@@ -338,7 +337,8 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     const distToWp = Phaser.Math.Distance.Between(this.x, this.y, this.waypointX, this.waypointY);
     if (now >= this.pathNextAt || distToWp < TILE_S * 0.8) {
       this.pathNextAt = now + 400;
-      const fx = Math.floor(this.x / TILE_S), fy = Math.floor(this.y / TILE_S);
+      const body2 = this.body as Phaser.Physics.Arcade.Body;
+      const fx = Math.floor(body2.center.x / TILE_S), fy = Math.floor(body2.center.y / TILE_S);
       const tx = Math.floor(this.roomCenterX / TILE_S), ty = Math.floor(this.roomCenterY / TILE_S);
       const wp = this.tiles.length ? nextStep(this.tiles, fx, fy, tx, ty, TILE_S) : null;
       if (wp) {
@@ -355,11 +355,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     const dy   = this.waypointY - this.y;
     const wdist = Math.sqrt(dx * dx + dy * dy);
     if (wdist < 2) { this.pathNextAt = 0; this.playAnim(this.animIdle); return; }
-
-    (this.body as Phaser.Physics.Arcade.Body).setVelocity(
-      (dx / wdist) * this.speed,
-      (dy / wdist) * this.speed,
-    );
+    this.setMoveVelocity(dx, dy, wdist, this.speed);
     if (Math.abs(dx) > 1) this.setFlipX(dx < 0);
     this.playAnim(this.animWalk);
   }
@@ -412,6 +408,39 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     }
     this.patrolTargetX = this.roomCenterX;
     this.patrolTargetY = this.roomCenterY;
+  }
+
+  // ── Movement ─────────────────────────────────────────────
+
+  /**
+   * Axis-priority velocity toward waypoint.
+   * Primary axis: full speed toward waypoint.
+   * Secondary axis: corrects toward current tile center to prevent
+   * corner-sticking in 1-tile-wide corridors.
+   */
+  private setMoveVelocity(dx: number, dy: number, dist: number, spd: number): void {
+    const body     = this.body as Phaser.Physics.Arcade.Body;
+    // Use body.center (not sprite origin) to determine which tile the enemy is actually in.
+    // Sprite center can cross a tile boundary while the body is still in the previous tile,
+    // causing tileCX to point toward the wall instead of the corridor center.
+    const tileCX   = (Math.floor(body.center.x / TILE_S) + 0.5) * TILE_S;
+    const tileCY   = (Math.floor(body.center.y / TILE_S) + 0.5) * TILE_S;
+    const alignSpd = spd * 0.9;
+
+    let vx: number;
+    let vy: number;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      // Primary: horizontal. Align body center Y to tile center.
+      vx = (dx / dist) * spd;
+      const yErr = tileCY - body.center.y;
+      vy = Math.abs(yErr) > 1 ? Math.sign(yErr) * alignSpd : 0;
+    } else {
+      // Primary: vertical. Align body center X to tile center.
+      const xErr = tileCX - body.center.x;
+      vx = Math.abs(xErr) > 1 ? Math.sign(xErr) * alignSpd : 0;
+      vy = (dy / dist) * spd;
+    }
+    body.setVelocity(vx, vy);
   }
 
   // ── Bar ──────────────────────────────────────────────────

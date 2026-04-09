@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import balance from '../data/balance.json';
-import { generateDungeon, isEdgeWall, TILE_FLOOR, TILE_STAIR, TILE_WALL } from '../systems/DungeonGenerator';
+import { generateDungeon, isEdgeWall, TILE_FLOOR, TILE_STAIR, TILE_WALL, Room } from '../systems/DungeonGenerator';
 import { calcDamage } from '../utils/combat';
 import { BaseEnemy } from '../entities/BaseEnemy';
 import { Skeleton } from '../entities/Skeleton';
@@ -10,6 +10,7 @@ import { Player } from '../entities/Player';
 import { SCALE, TILE_S } from '../utils/constants';
 import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
+import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
@@ -57,10 +58,12 @@ export class GameScene extends Phaser.Scene {
   private qKey!: Phaser.Input.Keyboard.Key;
   private eKey!: Phaser.Input.Keyboard.Key;
 
-  private stairX    = 0;
-  private stairY    = 0;
-  private stairUsed = false;
-  private floor     = 1;
+  private stairX         = 0;
+  private stairY         = 0;
+  private stairUsed      = false;
+  private stairChargeMs  = 0;
+  private stairBarGfx:   Phaser.GameObjects.Graphics | null = null;
+  private floor          = 1;
   private traps: Array<{ sprite: Phaser.GameObjects.Sprite; timer: number; firing: boolean }> = [];
 
   private coins!:   Phaser.Physics.Arcade.StaticGroup;
@@ -167,23 +170,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // ── Chests — 1-4 per floor, in random rooms ───────────────
-    {
-      this.chests = [];
-      const bc = balance.chest;
-      const count = Phaser.Math.Between(bc.spawnMin, bc.spawnMax);
-      const eligibleRooms = [...dungeon.rooms];
-      Phaser.Utils.Array.Shuffle(eligibleRooms);
-      for (let i = 0; i < Math.min(count, eligibleRooms.length); i++) {
-        const room = eligibleRooms[i];
-        const cx = (room.x + Math.floor(room.w / 2)) * TILE_S + TILE_S / 2;
-        const cy = (room.y + Math.floor(room.h / 2)) * TILE_S + TILE_S / 2 + TILE_S;
-        const chest = new Chest(this, cx, cy);
-        chest.onOpen = (ox, oy) => this.spawnChestLoot(ox, oy);
-        this.chests.push(chest);
-        this.physics.add.collider(this.player, chest);
-      }
-    }
+    this.chests = [];
 
     // ── Traps ─────────────────────────────────────────────────
     this.traps = [];
@@ -326,35 +313,48 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Spawn enemies — +1 per floor, capped at maxEnemiesPerRoom
-    const baseMin = balance.dungeon.enemiesPerRoom.min;
-    const baseMax = balance.dungeon.enemiesPerRoom.max;
-    const cap  = balance.dungeon.maxEnemiesPerRoom;
-    const eMin = Math.min(baseMin + this.floor - 1, cap);
-    const eMax = Math.min(baseMax + this.floor - 1, cap);
+    // Occupied tiles: traps first, chests/coins/potions will avoid these
+    const occupiedTiles = new Set<string>(
+      this.traps.map(t => `${Math.floor(t.sprite.x / TILE_S)},${Math.floor(t.sprite.y / TILE_S)}`)
+    );
 
+    // Spawn enemies; empty rooms → guaranteed chest, enemy rooms → 35% chance
+    const el = balance.enemyLoot;
+    const bc = balance.coins;
+    const onEnemyDeath = (x: number, y: number) => {
+      const r = Math.random();
+      if (r < el.redChance)    { this.dropCoin(x, y, bc.redFrame,    bc.redValue);    return; }
+      if (r < el.goldChance)   { this.dropCoin(x, y, bc.goldFrame,   bc.goldValue);   return; }
+      if (r < el.silverChance) {
+        this.dropCoin(x, y, bc.silverFrame, bc.silverValue);
+        if (Math.random() < el.silverCount2) this.dropCoin(x, y, bc.silverFrame, bc.silverValue);
+      }
+      if (Math.random() < el.potionChance) this.dropPotion(x, y);
+    };
+    const spawner = new EnemySpawner(this, this.enemies, tiles, this.player, this.floor, onEnemyDeath);
+    const spawnChest = (room: Room) => {
+      // Find a free floor tile not occupied by a trap or another chest
+      let col = room.x + Math.floor(room.w / 2);
+      let row = room.y + Math.floor(room.h / 2);
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const tc = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
+        const tr = Phaser.Math.Between(room.y + 1, room.y + room.h - 2);
+        if (!occupiedTiles.has(`${tc},${tr}`) && tiles[tr]?.[tc] !== TILE_WALL) {
+          col = tc; row = tr; break;
+        }
+      }
+      occupiedTiles.add(`${col},${row}`);
+      const cx = col * TILE_S + TILE_S / 2;
+      const cy = row * TILE_S + TILE_S / 2 + TILE_S;
+      const chest = new Chest(this, cx, cy);
+      chest.onOpen = (ox, oy) => this.spawnChestLoot(ox, oy);
+      this.chests.push(chest);
+      this.physics.add.collider(this.player, chest);
+    };
     for (const room of dungeon.rooms.filter(r => r.type === 'normal')) {
-      const count = Phaser.Math.Between(eMin, eMax);
-      for (let e = 0; e < count; e++) {
-        const col = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
-        const row = Phaser.Math.Between(room.y + 1, room.y + room.h - 2);
-        const ex  = col * TILE_S + TILE_S / 2;
-        const ey  = row * TILE_S + TILE_S / 2;
-        const r = Math.random() * (
-          balance.enemies.skeleton.spawnWeight +
-          balance.enemies.vampire.spawnWeight +
-          balance.enemies.orc.spawnWeight
-        );
-        const enemy = r < balance.enemies.orc.spawnWeight
-          ? new Orc(this, ex, ey)
-          : r < balance.enemies.orc.spawnWeight + balance.enemies.vampire.spawnWeight
-          ? new Vampire(this, ex, ey)
-          : new Skeleton(this, ex, ey);
-        enemy.setPlayer(this.player);
-        enemy.setTiles(tiles);
-        enemy.setRoom(room);
-        enemy.onDamagePlayer = (atk, fx, fy) => this.player.takeDamage(atk, fx, fy);
-        this.enemies.add(enemy);
+      const count = spawner.spawnRoom(room);
+      if (count === 0 || Math.random() < balance.chest.chestChancePerEnemyRoom) {
+        spawnChest(room);
       }
     }
 
@@ -378,7 +378,7 @@ export class GameScene extends Phaser.Scene {
           const room = dungeon.rooms[Phaser.Math.Between(0, dungeon.rooms.length - 1)];
           const col  = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
           const row  = Phaser.Math.Between(room.y + 1, room.y + room.h - 2);
-          if (dungeon.tiles[row]?.[col] === TILE_FLOOR) {
+          if (dungeon.tiles[row]?.[col] === TILE_FLOOR && !occupiedTiles.has(`${col},${row}`)) {
             spawnCoin(col, row, frame, value);
             return;
           }
@@ -414,7 +414,7 @@ export class GameScene extends Phaser.Scene {
           const room = dungeon.rooms[Phaser.Math.Between(0, dungeon.rooms.length - 1)];
           const col  = Phaser.Math.Between(room.x + 1, room.x + room.w - 2);
           const row  = Phaser.Math.Between(room.y + 1, room.y + room.h - 2);
-          if (dungeon.tiles[row]?.[col] === TILE_FLOOR) {
+          if (dungeon.tiles[row]?.[col] === TILE_FLOOR && !occupiedTiles.has(`${col},${row}`)) {
             const wx = col * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
             const wy = row * TILE_S + TILE_S / 2 + Phaser.Math.Between(-jitter, jitter);
             const s = this.potions.create(wx, wy, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
@@ -496,10 +496,17 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Stair check
+    // Stair charge — stay on stair for stairChargeDuration ms to descend
     if (!this.stairUsed) {
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.stairX, this.stairY);
-      if (dist < STAIR_RADIUS) this.nextFloor();
+      if (dist < STAIR_RADIUS) {
+        this.stairChargeMs = Math.min(this.stairChargeMs + delta, balance.dungeon.stairChargeDuration);
+        this.updateStairBar(this.stairChargeMs / balance.dungeon.stairChargeDuration);
+        if (this.stairChargeMs >= balance.dungeon.stairChargeDuration) this.nextFloor();
+      } else if (this.stairChargeMs > 0) {
+        this.stairChargeMs = 0;
+        this.clearStairBar();
+      }
     }
   }
 
@@ -531,6 +538,29 @@ export class GameScene extends Phaser.Scene {
       chest.takeDamage(dmg);
       this.floatText.showDamage(chest.x, chest.y, dmg, isCrit);
     }
+  }
+
+  private dropPotion(wx: number, wy: number): void {
+    const bp     = balance.potions;
+    const jitter = Math.floor(TILE_S * 0.3);
+    const item   = bp.items[Phaser.Math.Between(0, bp.items.length - 1)];
+    const x = wx + Phaser.Math.Between(-jitter, jitter);
+    const y = wy + Phaser.Math.Between(-jitter, jitter);
+    const s = this.potions.create(x, y, 'potions', item.frame) as Phaser.Physics.Arcade.Sprite;
+    s.setDisplaySize(bp.displaySize, bp.displaySize).setDepth(y + 16).refreshBody();
+    (s.body as Phaser.Physics.Arcade.StaticBody).setSize(bp.displaySize, bp.displaySize);
+    s.setData('heal', item.heal);
+  }
+
+  private dropCoin(wx: number, wy: number, frame: number, value: number): void {
+    const COIN_SZ = 12;
+    const jitter  = Math.floor(TILE_S * 0.3);
+    const x = wx + Phaser.Math.Between(-jitter, jitter);
+    const y = wy + Phaser.Math.Between(-jitter, jitter);
+    const s = this.coins.create(x, y, 'icons', frame) as Phaser.Physics.Arcade.Sprite;
+    s.setDisplaySize(COIN_SZ, COIN_SZ).setDepth(y + 16).refreshBody();
+    (s.body as Phaser.Physics.Arcade.StaticBody).setSize(COIN_SZ, COIN_SZ);
+    s.setData('value', value);
   }
 
   private spawnChestLoot(x: number, y: number): void {
@@ -642,10 +672,51 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // ── Stair bar ─────────────────────────────────────────────────
+
+  private updateStairBar(pct: number): void {
+    const R     = 14;
+    const bx    = this.player.x;
+    const by    = this.player.y - 54;
+    const depth = (this.player.body as Phaser.Physics.Arcade.Body).bottom + 20;
+
+    if (!this.stairBarGfx) {
+      this.stairBarGfx = this.add.graphics({ x: bx, y: by });
+    }
+
+    const g = this.stairBarGfx;
+    g.setPosition(bx, by).setDepth(depth);
+    g.clear();
+
+    // Dark background circle
+    g.fillStyle(0x111111, 0.75);
+    g.fillCircle(0, 0, R);
+
+    // Background ring track
+    g.lineStyle(3, 0x444444, 1);
+    g.beginPath();
+    g.arc(0, 0, R - 2, 0, Math.PI * 2, false);
+    g.strokePath();
+
+    // Progress arc — clockwise from top
+    if (pct > 0.01) {
+      g.lineStyle(3, 0xffdd44, 1);
+      g.beginPath();
+      g.arc(0, 0, R - 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct, false);
+      g.strokePath();
+    }
+  }
+
+  private clearStairBar(): void {
+    this.stairBarGfx?.destroy();
+    this.stairBarGfx = null;
+  }
+
   // ── Floor / Game Over ─────────────────────────────────────────
 
   private nextFloor() {
     this.stairUsed = true;
+    this.clearStairBar();
     this.registry.set('floor',     this.floor + 1);
     this.registry.set('playerHp',  this.player.hp);
     this.registry.set('coinValue', this.coinValue);

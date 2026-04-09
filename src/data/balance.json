@@ -39,7 +39,6 @@
       "invincibilityDuration": 500,
       "knockbackResist": 1.0,
       "knockbackForce": 50,
-      "spawnWeight": 55,
       "patrolSpeed": 0.5,
       "leashRange": 600,
       "patrolPause": 1500
@@ -55,7 +54,6 @@
       "invincibilityDuration": 500,
       "knockbackResist": 0.7,
       "knockbackForce": 20,
-      "spawnWeight": 15,
       "patrolSpeed": 0.4,
       "leashRange": 500,
       "patrolPause": 2000
@@ -71,11 +69,17 @@
       "invincibilityDuration": 500,
       "knockbackResist": 1.0,
       "knockbackForce": 50,
-      "spawnWeight": 30,
       "patrolSpeed": 0.5,
       "leashRange": 700,
       "patrolPause": 1200
     }
+  },
+  "enemyLoot": {
+    "silverChance":  0.25,
+    "silverCount2":  0.10,
+    "goldChance":    0.05,
+    "redChance":     0.005,
+    "potionChance":  0.15
   },
   "coins": {
     "redFrame":     128,
@@ -111,15 +115,14 @@
   "chest": {
     "hpVariants": [150, 200, 300, 350],
     "scale": 2.5,
-    "spawnMin": 1,
-    "spawnMax": 4,
+    "chestChancePerEnemyRoom": 0.35,
     "loot": {
       "silverMin": 2,
       "silverMax": 7,
       "goldChance": 0.4,
       "redChance": 0.02,
-      "potion1Chance": 0.65,
-      "potion2Chance": 0.15
+      "potion1Chance": 0.90,
+      "potion2Chance": 0.20
     }
   },
   "trap": {
@@ -138,7 +141,12 @@
     "roomPadding": 1,
     "corridorWidth": 1,
     "extraCorridors": 1,
-    "enemiesPerRoom": { "min": 1, "max": 3 },
-    "maxEnemiesPerRoom": 3
+    "stairChargeDuration": 3000,
+    "enemyCountWeights": [20, 20, 30, 15, 15],
+    "enemyTypeWeights": {
+      "floor1":     { "skeleton": 100, "vampire":  0, "orc":  0 },
+      "floor2":     { "skeleton":  80, "vampire": 20, "orc":  0 },
+      "floor3plus": { "skeleton":  60, "vampire": 20, "orc": 20 }
+    }
   }
 }
