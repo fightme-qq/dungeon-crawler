@@ -82,6 +82,29 @@ export class GameScene extends Phaser.Scene {
     this.coinValue  = this.registry.get('coinValue') ?? 0;
     this.stairUsed  = false;
 
+    // Canvas textures (trap, torch) are created in BootScene but may not survive
+    // scene.restart() in some Phaser builds — recreate them if missing.
+    if (!this.textures.exists('trap')) {
+      const c = this.textures.createCanvas('trap', 64, 16)!;
+      const ctx = (c.getSourceImage() as HTMLCanvasElement).getContext('2d')!;
+      ['_peaks4', '_peaks3', '_peaks2', '_peaks1'].forEach((k, i) => {
+        ctx.drawImage(this.textures.get(k).getSourceImage() as HTMLImageElement, i * 16, 0, 16, 16);
+      });
+      c.add(0, 0,  0, 0, 16, 16); c.add(1, 0, 16, 0, 16, 16);
+      c.add(2, 0, 32, 0, 16, 16); c.add(3, 0, 48, 0, 16, 16);
+      c.refresh();
+    }
+    if (!this.textures.exists('torch')) {
+      const c = this.textures.createCanvas('torch', 64, 16)!;
+      const ctx = (c.getSourceImage() as HTMLCanvasElement).getContext('2d')!;
+      ['_torch1', '_torch2', '_torch3', '_torch4'].forEach((k, i) => {
+        ctx.drawImage(this.textures.get(k).getSourceImage() as HTMLImageElement, i * 16, 0, 16, 16);
+      });
+      c.add(0, 0,  0, 0, 16, 16); c.add(1, 0, 16, 0, 16, 16);
+      c.add(2, 0, 32, 0, 16, 16); c.add(3, 0, 48, 0, 16, 16);
+      c.refresh();
+    }
+
     this.cameras.main.setBackgroundColor(0x25131a);
     const dungeon = generateDungeon();
     const { tiles, width, height, playerStart, stairPos, corridorWidths } = dungeon;
