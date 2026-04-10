@@ -108,8 +108,9 @@ export class ArrowSystem {
           const v      = balance.player.damageVariance;
           const vary   = 1 - v + Math.random() * v * 2;
           const dmg    = Math.round(calcDamage(balance.player.attack3.damage * mult * vary, enemy.getArmor()));
-          const kb     = Phaser.Math.Angle.Between(a.sprite.x, a.sprite.y, enemy.x, enemy.y);
-          enemy.takeDamage(dmg, Math.cos(kb) * enemy.getKnockbackForce(), Math.sin(kb) * enemy.getKnockbackForce());
+          const kb  = Phaser.Math.Angle.Between(a.sprite.x, a.sprite.y, enemy.x, enemy.y);
+          const ekb = enemy.getKnockbackForce() * 0.9;
+          enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
           this.onDamage(enemy.x, enemy.y, dmg, isCrit);
           hitEnemy = true;
           break;

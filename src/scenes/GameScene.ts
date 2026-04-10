@@ -605,7 +605,7 @@ export class GameScene extends Phaser.Scene {
     else if (r < loot.potion1Chance) { spawnPotion(); }
   }
 
-  private hitEnemiesRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number): void {
+  private hitEnemiesRect(hitRect: Phaser.Geom.Rectangle, dmgBase: number, kbMult = 1): void {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as BaseEnemy;
       if (!enemy.active) continue;
@@ -618,13 +618,13 @@ export class GameScene extends Phaser.Scene {
       if (!Phaser.Geom.Rectangle.Overlaps(hitRect, er)) continue;
       const [dmg, isCrit] = this.rollDamage(dmgBase, enemy.getArmor());
       const kb  = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
-      const ekb = enemy.getKnockbackForce();
+      const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
     }
   }
 
-  private hitEnemiesCircle(circle: Phaser.Geom.Circle, dmgBase: number): void {
+  private hitEnemiesCircle(circle: Phaser.Geom.Circle, dmgBase: number, kbMult = 1): void {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as BaseEnemy;
       if (!enemy.active) continue;
@@ -632,7 +632,7 @@ export class GameScene extends Phaser.Scene {
       if (!Phaser.Geom.Circle.Contains(circle, body.center.x, body.center.y)) continue;
       const [dmg, isCrit] = this.rollDamage(dmgBase, enemy.getArmor());
       const kb  = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
-      const ekb = enemy.getKnockbackForce();
+      const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
     }
@@ -644,10 +644,10 @@ export class GameScene extends Phaser.Scene {
     if (hit) { this.hitEnemiesRect(hit, balance.player.attack); this.hitChestsRect(hit, balance.player.attack); }
   }
 
-  // Attack 2 — lunge (RMB / Q)
+  // Attack 2 — lunge (RMB / Q) — 30% more knockback
   private processAttack2(): void {
     const hit = this.player.tryAttack2();
-    if (hit) { this.hitEnemiesRect(hit, balance.player.attack2.damage); this.hitChestsRect(hit, balance.player.attack2.damage); }
+    if (hit) { this.hitEnemiesRect(hit, balance.player.attack2.damage, 1.3); this.hitChestsRect(hit, balance.player.attack2.damage); }
   }
 
   // Attack 3 — arrow shot (E), aimed at mouse but clamped to facing half
