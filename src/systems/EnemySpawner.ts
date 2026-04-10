@@ -32,7 +32,7 @@ export class EnemySpawner {
       enemy.setPlayer(this.player);
       enemy.setTiles(this.tiles);
       enemy.setRoom(room);
-      enemy.onDamagePlayer = (atk, fx, fy) => this.player.takeDamage(atk, fx, fy);
+      enemy.onDamagePlayer = (atk, fx, fy, kbForce) => this.player.takeDamage(atk, fx, fy, kbForce);
       enemy.onDeath = this.onDeath;
       this.group.add(enemy);
     }

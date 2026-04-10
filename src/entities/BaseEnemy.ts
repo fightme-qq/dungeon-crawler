@@ -32,7 +32,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
   protected barOffsetY = 0; // per-enemy vertical nudge for the HP bar
 
   protected player!: Phaser.Physics.Arcade.Sprite;
-  onDamagePlayer: ((atk: number, fromX: number, fromY: number) => void) | null = null;
+  onDamagePlayer: ((atk: number, fromX: number, fromY: number, kbForce: number) => void) | null = null;
   onDeath:        ((x: number, y: number) => void) | null = null;
 
   private tiles: number[][] = [];
@@ -223,7 +223,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
       this.atkDamageAt = -1;
       const d = Phaser.Math.Distance.Between(this.x, this.y, this.player.x, this.player.y);
       if (d <= this.attackRange * 1.3 && this.onDamagePlayer) {
-        this.onDamagePlayer(this.attackDamage, this.x, this.y);
+        this.onDamagePlayer(this.attackDamage, this.x, this.y, this.knockbackForce);
         const mx = (this.x + this.player.x) / 2;
         const my = (this.y + this.player.y) / 2;
         const flash = this.scene.add.rectangle(mx, my, 14, 14, 0xff2222, 0.85).setDepth(this.depth + 1);

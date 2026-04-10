@@ -221,7 +221,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // ── Damage ──────────────────────────────────────────────────
 
-  takeDamage(rawAtk: number, fromX: number, fromY: number): void {
+  takeDamage(rawAtk: number, fromX: number, fromY: number, kbForce = balance.player.knockbackForce): void {
     if (this.invincible) return;
 
     const dmg = calcDamage(rawAtk, balance.player.armor);
@@ -237,8 +237,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.play('player-hurt', true);
 
-    const angle   = Phaser.Math.Angle.Between(fromX, fromY, this.x, this.y);
-    const kbForce = balance.player.knockbackForce;
+    const angle = Phaser.Math.Angle.Between(fromX, fromY, this.x, this.y);
     (this.body as Phaser.Physics.Arcade.Body).setVelocity(
       Math.cos(angle) * kbForce,
       Math.sin(angle) * kbForce,
