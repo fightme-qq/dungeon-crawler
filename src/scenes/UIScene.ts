@@ -190,15 +190,16 @@ export class UIScene extends Phaser.Scene {
       const iconX   = MM_X - PAD - iconSz / 2;   // icon center X
       const textX   = iconX - iconSz / 2 - 4;    // text right edge
 
-      const atkY = MM_Y + iconSz / 2;
-      this.statIcon = this.add.image(iconX, atkY, 'icons', 670)
+      // Bottom-aligned: armor at bottom, arrow above, sword at top
+      const armY = MM_Y + MM_H - iconSz / 2;
+      this.armorIcon = this.add.image(iconX, armY, 'icons', 1818)
         .setDisplaySize(iconSz, iconSz).setScrollFactor(0).setDepth(100);
-      this.statText = this.add.text(textX, atkY, '100', {
-        fontSize: '13px', fontStyle: 'bold', color: '#ffdd88',
+      this.armorText = this.add.text(textX, armY, '10', {
+        fontSize: '13px', fontStyle: 'bold', color: '#aaddff',
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
-      const arwY = atkY + rowH;
+      const arwY = armY - rowH;
       this.arrowIcon = this.add.image(iconX, arwY, 'icons', 1788)
         .setDisplaySize(iconSz, iconSz).setScrollFactor(0).setDepth(100);
       this.arrowText = this.add.text(textX, arwY, '80', {
@@ -206,11 +207,11 @@ export class UIScene extends Phaser.Scene {
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
-      const armY = arwY + rowH;
-      this.armorIcon = this.add.image(iconX, armY, 'icons', 1818)
+      const atkY = arwY - rowH;
+      this.statIcon = this.add.image(iconX, atkY, 'icons', 670)
         .setDisplaySize(iconSz, iconSz).setScrollFactor(0).setDepth(100);
-      this.armorText = this.add.text(textX, armY, '10', {
-        fontSize: '13px', fontStyle: 'bold', color: '#aaddff',
+      this.statText = this.add.text(textX, atkY, '100', {
+        fontSize: '13px', fontStyle: 'bold', color: '#ffdd88',
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
     }
