@@ -23,6 +23,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
   protected leashRange:           number;
   protected patrolPause:          number;
   protected knockbackForce:       number;
+  protected hitKnockback:         number;
   protected knockbackResist:      number;
 
   protected animIdle   = '';
@@ -80,6 +81,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     invincibilityDuration: number,
     patrolSpeed: number, leashRange: number, patrolPause: number,
     knockbackForce: number,
+    hitKnockback: number,
     knockbackResist = 1.0,
   ) {
     super(scene, x, y, texture);
@@ -98,6 +100,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
     this.leashRange             = leashRange;
     this.patrolPause            = patrolPause;
     this.knockbackForce         = knockbackForce;
+    this.hitKnockback           = hitKnockback;
     this.knockbackResist        = knockbackResist;
 
     this.setScale(spriteScale);
@@ -223,7 +226,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
       this.atkDamageAt = -1;
       const d = Phaser.Math.Distance.Between(this.x, this.y, this.player.x, this.player.y);
       if (d <= this.attackRange * 1.3 && this.onDamagePlayer) {
-        this.onDamagePlayer(this.attackDamage, this.x, this.y, this.knockbackForce);
+        this.onDamagePlayer(this.attackDamage, this.x, this.y, this.hitKnockback);
         const mx = (this.x + this.player.x) / 2;
         const my = (this.y + this.player.y) / 2;
         const flash = this.scene.add.rectangle(mx, my, 14, 14, 0xff2222, 0.85).setDepth(this.depth + 1);
