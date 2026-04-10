@@ -15,10 +15,11 @@ const FILL_SRC_W     = 48; // источник px: ширина зоны зап�
 const FILL_SRC_H     = 16; // высота фрейма в источнике
 
 // ── Ability hotkey icons ──────────────────────────────────────────────────────
-const AB_R  = 28;   // icon radius px
-const AB_QX = 55;   // Q icon center X (bottom-left)
-const AB_EX = 118;  // E icon center X
-const AB_Y  = 555;  // Y near bottom
+const AB_SZ = 48;   // icon square size px
+const AB_R  = AB_SZ / 2; // pie sweep radius = half icon
+const AB_QX = PAD + AB_SZ / 2;         // Q icon center X
+const AB_EX = PAD + AB_SZ + 8 + AB_SZ / 2; // E icon center X
+const AB_Y  = 600 - PAD - AB_SZ / 2;   // Y near bottom
 
 const MM_W = 150;
 const MM_H = 150;
@@ -137,33 +138,24 @@ export class UIScene extends Phaser.Scene {
 
     // ── Ability icons (Q = lunge, E = arrow) ──────────────────
     {
-      const bg = this.add.graphics().setScrollFactor(0).setDepth(200);
-      // Dark circle background
-      bg.fillStyle(0x000000, 0.55);
-      bg.fillCircle(AB_QX, AB_Y, AB_R);
-      bg.fillCircle(AB_EX, AB_Y, AB_R);
-      // Subtle border
-      bg.lineStyle(1.5, 0xffffff, 0.25);
-      bg.strokeCircle(AB_QX, AB_Y, AB_R);
-      bg.strokeCircle(AB_EX, AB_Y, AB_R);
-
-      // Ability icons inside circles (depth 200 — above bg, below overlay)
-      const abIconSz = 40;
+      // Square icon sprites — no circle background
       this.add.image(AB_QX, AB_Y, 'icons', 1122)
-        .setDisplaySize(abIconSz, abIconSz).setScrollFactor(0).setDepth(200).setAlpha(0.75);
+        .setDisplaySize(AB_SZ, AB_SZ).setScrollFactor(0).setDepth(200);
       this.add.image(AB_EX, AB_Y, 'icons', 1124)
-        .setDisplaySize(abIconSz, abIconSz).setScrollFactor(0).setDepth(200).setAlpha(0.75);
+        .setDisplaySize(AB_SZ, AB_SZ).setScrollFactor(0).setDepth(200);
 
-      // Cooldown overlay gfx (pie sweep drawn in update)
+      // Cooldown overlay gfx (pie sweep drawn in update, over the square)
       this.abGfx = this.add.graphics().setScrollFactor(0).setDepth(201);
 
-      // Key letters — on top of overlay
-      this.add.text(AB_QX, AB_Y - 1, 'Q', {
-        fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(202).setAlpha(0.8);
-      this.add.text(AB_EX, AB_Y - 1, 'E', {
-        fontSize: '28px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(202).setAlpha(0.8);
+      // Key letters — bottom-right corner of each icon
+      this.add.text(AB_QX + AB_SZ / 2 - 2, AB_Y + AB_SZ / 2 - 2, 'Q', {
+        fontSize: '13px', fontStyle: 'bold', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(1, 1).setScrollFactor(0).setDepth(202);
+      this.add.text(AB_EX + AB_SZ / 2 - 2, AB_Y + AB_SZ / 2 - 2, 'E', {
+        fontSize: '13px', fontStyle: 'bold', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(1, 1).setScrollFactor(0).setDepth(202);
     }
 
     // Floor label
