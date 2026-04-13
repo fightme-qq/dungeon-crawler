@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { TILE_WALL } from '../systems/DungeonGenerator';
 
+const GAME_W = 1280;
+const GAME_H = 720;
 const MAX_HP = balance.player.hp;
 const PAD    = 10;
 
@@ -19,12 +21,12 @@ const AB_SZ = 48;   // icon square size px
 const AB_R  = AB_SZ / 2; // pie sweep radius = half icon
 const AB_QX = PAD + AB_SZ / 2;         // Q icon center X
 const AB_EX = PAD + AB_SZ + 8 + AB_SZ / 2; // E icon center X
-const AB_Y  = 600 - PAD - AB_SZ / 2;   // Y near bottom
+const AB_Y  = GAME_H - PAD - AB_SZ / 2;   // Y near bottom
 
 const MM_W = 150;
 const MM_H = 150;
-const MM_X = 800 - PAD - MM_W;
-const MM_Y = 600 - PAD - MM_H;
+const MM_X = GAME_W - PAD - MM_W;
+const MM_Y = GAME_H - PAD - MM_H;
 
 const REVEAL_RADIUS = 5;
 const ENEMY_VISION  = 8;
@@ -159,7 +161,7 @@ export class UIScene extends Phaser.Scene {
     }
 
     // Floor label
-    this.floorText = this.add.text(800 - PAD, PAD + BAR_H / 2, 'Floor 1', {
+    this.floorText = this.add.text(GAME_W - PAD, PAD + BAR_H / 2, 'Floor 1', {
       fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
       backgroundColor: '#00000099', padding: { x: 6, y: 3 },
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
