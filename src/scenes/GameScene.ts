@@ -212,7 +212,7 @@ export class GameScene extends Phaser.Scene {
       const tx = tc * TILE_S + TILE_S / 2;
       const ty = tr * TILE_S + TILE_S / 2;
       const sprite = this.add.sprite(tx, ty, 'trap', 0);
-      sprite.setScale(2.5).setDepth(1).setVisible(true);
+      sprite.setScale(2.5).setDepth(1).setVisible(true).setCrop(0, 0, 16, 13);
       this.traps.push({ sprite, timer: Phaser.Math.Between(500, td.cooldown), firing: false });
     };
 
