@@ -489,7 +489,8 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
     this.game.events.emit('floorChanged', this.floor);
     this.game.events.emit('playerStatsChanged', { attack: this.stats.attack, arrowDamage: this.stats.arrowDamage, armor: this.stats.armor });
-    const dungeonData = { tiles, mapWidth: width, mapHeight: height, stairTileX: stairPos.x, stairTileY: stairPos.y };
+    const sr0         = dungeon.rooms[0];
+    const dungeonData = { tiles, mapWidth: width, mapHeight: height, stairTileX: stairPos.x, stairTileY: stairPos.y, startTileX: sr0.x + Math.floor(sr0.w / 2), startTileY: sr0.y + Math.floor(sr0.h / 2) };
     this.registry.set('dungeonData', dungeonData);
     this.game.events.emit('dungeonReady', dungeonData);
   }

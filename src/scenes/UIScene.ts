@@ -37,6 +37,7 @@ const C_WALL_DIM     = 0x555555;
 const C_FLOOR_BRIGHT = 0x777777;
 const C_WALL_BRIGHT  = 0xaaaaaa;
 const C_STAIR        = 0xddcc22;
+const C_START        = 0x44aaff;
 const C_PLAYER       = 0x44ff44;
 const C_ENEMY        = 0xcc2222;
 
@@ -73,6 +74,8 @@ export class UIScene extends Phaser.Scene {
   private mmScale = 1;
   private stairTX = 0;
   private stairTY = 0;
+  private startTX = 0;
+  private startTY = 0;
 
   // Visibility this frame (radius 5 around player)
   private currentVisible = new Set<number>(); // encoded row*mapW+col
@@ -297,12 +300,15 @@ export class UIScene extends Phaser.Scene {
     tiles: number[][];
     mapWidth: number; mapHeight: number;
     stairTileX: number; stairTileY: number;
+    startTileX: number; startTileY: number;
   }) {
     this.tiles   = data.tiles;
     this.mapW    = data.mapWidth;
     this.mapH    = data.mapHeight;
     this.stairTX = data.stairTileX;
     this.stairTY = data.stairTileY;
+    this.startTX = data.startTileX;
+    this.startTY = data.startTileY;
     this.mmScale = Math.min(MM_W / this.mapW, MM_H / this.mapH);
 
     // Reset fog — new floor
@@ -407,6 +413,14 @@ export class UIScene extends Phaser.Scene {
       const sx = MM_X + (this.stairTX + 0.5) * s;
       const sy = MM_Y + (this.stairTY + 0.5) * s;
       this.visibleGfx.fillStyle(C_STAIR, 1);
+      this.visibleGfx.fillCircle(sx, sy, Math.max(2, s * 0.8));
+    }
+
+    // Start — blue, only if revealed
+    if (this.revealed[this.startTY]?.[this.startTX]) {
+      const sx = MM_X + (this.startTX + 0.5) * s;
+      const sy = MM_Y + (this.startTY + 0.5) * s;
+      this.visibleGfx.fillStyle(C_START, 1);
       this.visibleGfx.fillCircle(sx, sy, Math.max(2, s * 0.8));
     }
   }
