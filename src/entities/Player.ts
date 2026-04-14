@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { calcDamage } from '../utils/combat';
+import { PlayerStats } from '../systems/RunState';
 
 type Key = Phaser.Input.Keyboard.Key;
 
@@ -19,7 +20,10 @@ type AttackState = 'none' | 'attack1' | 'attack2' | 'attack3';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private _hp: number;
-  readonly maxHp: number;
+  private _maxHp: number;
+  private _armor: number;
+
+  get maxHp(): number { return this._maxHp; }
 
   // Per-attack independent cooldown timers
   private atk1Timer = 0;
@@ -45,13 +49,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   onHpChanged: (current: number, max: number) => void = () => {};
   onDie: () => void = () => {};
 
-  constructor(scene: Phaser.Scene, x: number, y: number, savedHp?: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, stats: PlayerStats, savedHp?: number) {
     super(scene, x, y, 'soldier-idle');
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.maxHp = balance.player.hp;
-    this._hp   = savedHp ?? this.maxHp;
+    this._maxHp = stats.maxHp;
+    this._armor = stats.armor;
+    this._hp    = savedHp ?? this._maxHp;
 
     this.setScale(SOLDIER_SCALE);
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -79,6 +84,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   heal(amount: number): void {
     this._hp = Math.min(this.maxHp, this._hp + amount);
+  }
+
+  updateStats(stats: PlayerStats): void {
+    this._maxHp = stats.maxHp;
+    this._armor = stats.armor;
   }
 
   setupInput(
@@ -224,7 +234,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   takeDamage(rawAtk: number, fromX: number, fromY: number, kbForce = balance.player.knockbackForce): void {
     if (this.invincible) return;
 
-    const dmg = calcDamage(rawAtk, balance.player.armor);
+    const dmg = calcDamage(rawAtk, this._armor);
     this._hp -= dmg;
     this.onHpChanged(Math.max(0, this._hp), this.maxHp);
 

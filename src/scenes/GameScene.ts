@@ -12,6 +12,8 @@ import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
 import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
+import { getStats, setStats, clearStats, PlayerStats } from '../systems/RunState';
+import { ShopSystem, ShopItemInstance } from '../systems/ShopSystem';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
 const FRAME_FLOOR        = 11; // row 1 col 1 — interior floor
@@ -71,7 +73,9 @@ export class GameScene extends Phaser.Scene {
   private chests:   Chest[] = [];
   private coinValue = 0;
   private floatText!: FloatTextSystem;
-  private arrowSystem!: ArrowSystem; // total in silver units
+  private arrowSystem!: ArrowSystem;
+  private shopSystem: ShopSystem | null = null;
+  private stats!: PlayerStats;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -81,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     this.floor      = this.registry.get('floor') ?? 1;
     this.coinValue  = this.registry.get('coinValue') ?? 0;
     this.stairUsed  = false;
+    this.stats      = getStats(this.registry);
 
     // Canvas textures (trap, torch) are created in BootScene but may not survive
     // scene.restart() in some Phaser builds — recreate them if missing.
@@ -152,7 +157,7 @@ export class GameScene extends Phaser.Scene {
     // Spawn player
     const px = playerStart.x * TILE_S + TILE_S / 2;
     const py = playerStart.y * TILE_S + TILE_S / 2;
-    this.player = new Player(this, px, py, this.registry.get('playerHp'));
+    this.player = new Player(this, px, py, this.stats, this.registry.get('playerHp'));
     this.player.onHpChanged = (current, max) => {
       this.registry.set('playerHp', current);
       this.game.events.emit('playerHpChanged', current, max);
@@ -468,12 +473,18 @@ export class GameScene extends Phaser.Scene {
 
     this.floatText  = new FloatTextSystem(this);
     this.arrowSystem = new ArrowSystem(this, this.enemies, tiles,
-      (x, y, dmg, isCrit) => this.floatText.showDamage(x, y, dmg, isCrit));
+      (x, y, dmg, isCrit) => this.floatText.showDamage(x, y, dmg, isCrit),
+      () => this.stats);
     this.arrowSystem.setChests(this.chests);
+
+    this.shopSystem = new ShopSystem(this);
+    const startRoom = dungeon.rooms.find(r => r.type === 'start');
+    if (startRoom) this.shopSystem.spawnInRoom(startRoom);
+
     this.scene.launch('UIScene');
     this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
     this.game.events.emit('floorChanged', this.floor);
-    this.game.events.emit('playerStatsChanged', { attack: balance.player.attack, arrowDamage: balance.player.attack3.damage, armor: balance.player.armor });
+    this.game.events.emit('playerStatsChanged', { attack: this.stats.attack, arrowDamage: this.stats.arrowDamage, armor: this.stats.armor });
     const dungeonData = { tiles, mapWidth: width, mapHeight: height, stairTileX: stairPos.x, stairTileY: stairPos.y };
     this.registry.set('dungeonData', dungeonData);
     this.game.events.emit('dungeonReady', dungeonData);
@@ -486,7 +497,11 @@ export class GameScene extends Phaser.Scene {
 
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.processAttack1();
     if (Phaser.Input.Keyboard.JustDown(this.qKey))     this.processAttack2();
-    if (Phaser.Input.Keyboard.JustDown(this.eKey))     this.processAttack3();
+
+    const eJustDown = Phaser.Input.Keyboard.JustDown(this.eKey);
+    const bought    = this.shopSystem?.update(this.player.x, this.player.y, this.coinValue, eJustDown) ?? null;
+    if (bought) this.applyPurchase(bought);
+    if (!bought && eJustDown) this.processAttack3();
 
     this.game.events.emit('abilityState', {
       qPct: this.player.getAtk2CooldownPct(),
@@ -539,8 +554,8 @@ export class GameScene extends Phaser.Scene {
   // ── Attacks ───────────────────────────────────────────────────
 
   private rollDamage(dmgBase: number, armor: number): [number, boolean] {
-    const isCrit  = Math.random() < balance.player.critChance;
-    const mult    = isCrit ? balance.player.critMultiplier : 1;
+    const isCrit  = Math.random() < this.stats.critChance;
+    const mult    = isCrit ? this.stats.critMultiplier : 1;
     const v       = balance.player.damageVariance;
     const vary    = 1 - v + Math.random() * v * 2; // [1-v .. 1+v]
     return [Math.round(calcDamage(dmgBase * mult * vary, armor)), isCrit];
@@ -665,13 +680,14 @@ export class GameScene extends Phaser.Scene {
   // Attack 1 — basic swing (LMB / Space)
   private processAttack1(): void {
     const hit = this.player.tryAttack1();
-    if (hit) { this.hitEnemiesRect(hit, balance.player.attack); this.hitChestsRect(hit, balance.player.attack); }
+    if (hit) { this.hitEnemiesRect(hit, this.stats.attack); this.hitChestsRect(hit, this.stats.attack); }
   }
 
-  // Attack 2 — lunge (RMB / Q) — 30% more knockback
+  // Attack 2 — lunge (RMB / Q) — 30% more knockback; scales with stats.attack proportionally
   private processAttack2(): void {
-    const hit = this.player.tryAttack2();
-    if (hit) { this.hitEnemiesRect(hit, balance.player.attack2.damage, 1.3); this.hitChestsRect(hit, balance.player.attack2.damage); }
+    const hit  = this.player.tryAttack2();
+    const dmg2 = Math.round(this.stats.attack * (balance.player.attack2.damage / balance.player.attack));
+    if (hit) { this.hitEnemiesRect(hit, dmg2, 1.3); this.hitChestsRect(hit, dmg2); }
   }
 
   // Attack 3 — arrow shot (E), aimed at mouse but clamped to facing half
@@ -697,6 +713,30 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(balance.player.attack3.shootDelay, () => {
       if (!this.player.active) return;
       this.arrowSystem.shoot(this.player.x, this.player.y, clamped);
+    });
+  }
+
+  // ── Shop purchase ─────────────────────────────────────────────
+
+  private applyPurchase(inst: ShopItemInstance): void {
+    this.coinValue -= inst.price;
+    this.registry.set('coinValue', this.coinValue);
+    this.game.events.emit('coinsChanged', this.coinValue);
+
+    switch (inst.statKey) {
+      case 'attack':         this.stats.attack         += inst.value;        break;
+      case 'arrowDamage':    this.stats.arrowDamage    += inst.value;        break;
+      case 'armor':          this.stats.armor          += inst.value;        break;
+      case 'critMultiplier': this.stats.critMultiplier += inst.value / 100;  break;
+      case 'critChance':     this.stats.critChance     += inst.value / 100;  break;
+      case 'maxHp':          this.stats.maxHp          += inst.value;        break;
+    }
+    this.player.updateStats(this.stats);
+    setStats(this.registry, this.stats);
+    this.game.events.emit('playerStatsChanged', {
+      attack:      this.stats.attack,
+      arrowDamage: this.stats.arrowDamage,
+      armor:       this.stats.armor,
     });
   }
 
@@ -748,6 +788,9 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('floor',     this.floor + 1);
     this.registry.set('playerHp',  this.player.hp);
     this.registry.set('coinValue', this.coinValue);
+    setStats(this.registry, this.stats);
+    this.shopSystem?.destroy();
+    this.shopSystem = null;
     this.scene.stop('UIScene');
     this.scene.restart();
   }
@@ -758,11 +801,12 @@ export class GameScene extends Phaser.Scene {
     this.registry.remove('floor');
     this.registry.remove('playerHp');
     this.registry.remove('coinValue');
+    clearStats(this.registry);
 
-    this.add.rectangle(400, 300, 800, 600, 0x000000, 0.7).setDepth(900).setScrollFactor(0);
-    this.add.text(400, 270, 'GAME OVER', { fontSize: '48px', color: '#ff4444', stroke: '#000', strokeThickness: 4 })
+    this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7).setDepth(900).setScrollFactor(0);
+    this.add.text(640, 330, 'GAME OVER', { fontSize: '48px', color: '#ff4444', stroke: '#000', strokeThickness: 4 })
       .setOrigin(0.5).setDepth(901).setScrollFactor(0);
-    this.add.text(400, 330, 'Click to restart', { fontSize: '20px', color: '#ffffff' })
+    this.add.text(640, 390, 'Click to restart', { fontSize: '20px', color: '#ffffff' })
       .setOrigin(0.5).setDepth(901).setScrollFactor(0);
 
     // Remove attack listener so clicks go to restart

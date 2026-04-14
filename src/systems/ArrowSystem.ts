@@ -5,6 +5,7 @@ import { Chest } from '../entities/Chest';
 import { TILE_S } from '../utils/constants';
 import { calcDamage } from '../utils/combat';
 import { TILE_WALL } from './DungeonGenerator';
+import { PlayerStats } from './RunState';
 
 const ARROW_SPEED  = 480; // px/s
 const MAX_RANGE    = TILE_S * 10;
@@ -23,24 +24,27 @@ interface Arrow {
 }
 
 export class ArrowSystem {
-  private scene:   Phaser.Scene;
-  private enemies: Phaser.Physics.Arcade.Group;
-  private chests:  Chest[] = [];
-  private tiles:   number[][];
-  private arrows:  Arrow[] = [];
-  private cooldown = 0;
+  private scene:    Phaser.Scene;
+  private enemies:  Phaser.Physics.Arcade.Group;
+  private chests:   Chest[] = [];
+  private tiles:    number[][];
+  private arrows:   Arrow[] = [];
+  private cooldown  = 0;
   private onDamage: (x: number, y: number, dmg: number, isCrit: boolean) => void;
+  private getStats: () => PlayerStats;
 
   constructor(
     scene:    Phaser.Scene,
     enemies:  Phaser.Physics.Arcade.Group,
     tiles:    number[][],
     onDamage: (x: number, y: number, dmg: number, isCrit: boolean) => void,
+    getStats: () => PlayerStats,
   ) {
     this.scene    = scene;
     this.enemies  = enemies;
     this.tiles    = tiles;
     this.onDamage = onDamage;
+    this.getStats = getStats;
   }
 
   setChests(chests: Chest[]): void { this.chests = chests; }
@@ -103,11 +107,12 @@ export class ArrowSystem {
         const dist = Phaser.Math.Distance.Between(a.sprite.x, a.sprite.y, body.center.x, body.center.y);
         const hitR = body.halfWidth + 10;
         if (dist < hitR) {
-          const isCrit = Math.random() < balance.player.critChance;
-          const mult   = isCrit ? balance.player.critMultiplier : 1;
+          const s      = this.getStats();
+          const isCrit = Math.random() < s.critChance;
+          const mult   = isCrit ? s.critMultiplier : 1;
           const v      = balance.player.damageVariance;
           const vary   = 1 - v + Math.random() * v * 2;
-          const dmg    = Math.round(calcDamage(balance.player.attack3.damage * mult * vary, enemy.getArmor()));
+          const dmg    = Math.round(calcDamage(s.arrowDamage * mult * vary, enemy.getArmor()));
           const kb  = Phaser.Math.Angle.Between(a.sprite.x, a.sprite.y, enemy.x, enemy.y);
           const ekb = enemy.getKnockbackForce() * 0.9;
           enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
@@ -124,11 +129,12 @@ export class ArrowSystem {
           if (!chest.active) continue;
           const dist = Phaser.Math.Distance.Between(a.sprite.x, a.sprite.y, chest.x, chest.y);
           if (dist < 20) {
-            const isCrit = Math.random() < balance.player.critChance;
-            const mult   = isCrit ? balance.player.critMultiplier : 1;
+            const s      = this.getStats();
+            const isCrit = Math.random() < s.critChance;
+            const mult   = isCrit ? s.critMultiplier : 1;
             const v      = balance.player.damageVariance;
             const vary   = 1 - v + Math.random() * v * 2;
-            const dmg    = Math.round(calcDamage(balance.player.attack3.damage * mult * vary, 0));
+            const dmg    = Math.round(calcDamage(s.arrowDamage * mult * vary, 0));
             chest.takeDamage(dmg);
             this.onDamage(chest.x, chest.y, dmg, isCrit);
             hitChest = true;
