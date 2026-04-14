@@ -727,19 +727,21 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('coinValue', this.coinValue);
     this.game.events.emit('coinsChanged', this.coinValue);
 
-    switch (inst.statKey) {
-      case 'attack':         this.stats.attack         += inst.value;        break;
-      case 'arrowDamage':    this.stats.arrowDamage    += inst.value;        break;
-      case 'armor':          this.stats.armor          += inst.value;        break;
-      case 'critMultiplier': this.stats.critMultiplier += inst.value / 100;  break;
-      case 'critChance':     this.stats.critChance     += inst.value / 100;  break;
-      case 'maxHp':
-        this.stats.maxHp += inst.value;
-        this.player.updateStats(this.stats);
-        this.player.heal(inst.value);
-        this.registry.set('playerHp', this.player.hp);
-        this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
-        break;
+    for (const b of inst.bonuses) {
+      switch (b.statKey) {
+        case 'attack':         this.stats.attack         += b.value;       break;
+        case 'arrowDamage':    this.stats.arrowDamage    += b.value;       break;
+        case 'armor':          this.stats.armor          += b.value;       break;
+        case 'critMultiplier': this.stats.critMultiplier += b.value / 100; break;
+        case 'critChance':     this.stats.critChance     += b.value / 100; break;
+        case 'maxHp':
+          this.stats.maxHp += b.value;
+          this.player.updateStats(this.stats);
+          this.player.heal(b.value);
+          this.registry.set('playerHp', this.player.hp);
+          this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
+          break;
+      }
     }
     this.player.updateStats(this.stats);
     setStats(this.registry, this.stats);

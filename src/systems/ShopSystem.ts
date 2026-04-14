@@ -9,11 +9,16 @@ const RARITY_NAMES  = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
 const RARITY_COLORS_HEX = ['#aaaaaa', '#44cc44', '#4488ff', '#cc44ff', '#ffaa00'];
 const RARITY_COLORS_INT = [0xaaaaaa,  0x44cc44,  0x4488ff,  0xcc44ff,  0xffaa00];
 
-export interface ShopItemInstance {
+export interface StatBonus {
   statKey: StatKey;
-  rarity:  number;   // 0-4
-  value:   number;   // stat amount
-  price:   number;   // silver cost
+  value:   number;
+}
+
+export interface ShopItemInstance {
+  statKey: StatKey;    // primary — drives icon + name
+  rarity:  number;     // 0-4
+  bonuses: StatBonus[]; // 1 bonus for C/U/R, 2 for Epic, 3 for Legendary
+  price:   number;
   name:    string;
   frame:   number;
 }
@@ -147,14 +152,29 @@ export class ShopSystem {
       if (rand <= 0) { rarity = i; break; }
     }
 
-    const rar  = itemDef.rarities[rarity];
-    const base = Phaser.Math.Between(rar.min, rar.max);
-    // Legendary gives double value
-    const value = rarity === 4 ? base * 2 : base;
+    const rar   = itemDef.rarities[rarity];
+    const value = Phaser.Math.Between(rar.min, rar.max);
     const frame = pick(ICON_POOLS[key]);
     const name  = pick(NAME_POOLS[key]);
 
-    return { statKey: key, rarity, value, price: rar.price, name, frame };
+    // Build bonus list — Epic gets 2, Legendary gets 3 stats
+    const bonusCount = rarity >= 4 ? 3 : rarity >= 3 ? 2 : 1;
+    const bonuses: StatBonus[] = [{ statKey: key, value }];
+
+    if (bonusCount > 1) {
+      const allKeys: StatKey[] = ['attack','arrowDamage','armor','critMultiplier','critChance','maxHp'];
+      const extras = Phaser.Utils.Array.Shuffle(
+        allKeys.filter(k => !bonuses.some(b => b.statKey === k))
+      ) as StatKey[];
+      for (let i = 0; i < bonusCount - 1 && i < extras.length; i++) {
+        const ek    = extras[i];
+        const eDef  = (s.items as Record<string, { rarities: Array<{ min: number; max: number; price: number }> }>)[ek];
+        const eTier = eDef.rarities[0]; // Common tier values for secondary bonuses
+        bonuses.push({ statKey: ek, value: Phaser.Math.Between(eTier.min, eTier.max) });
+      }
+    }
+
+    return { statKey: key, rarity, bonuses, price: rar.price, name, frame };
   }
 
   private createWorldItem(wx: number, wy: number, inst: ShopItemInstance): void {
@@ -193,35 +213,35 @@ export class ShopSystem {
     const s    = this.scene;
     const col  = RARITY_COLORS_INT[inst.rarity];
     const colH = RARITY_COLORS_HEX[inst.rarity];
+    const LINE  = 13; // px between bonus lines
+    const cardH = H + (inst.bonuses.length - 1) * LINE;
 
-    // Background — origin (0.5, 1) so card extends upward from container y=0
-    const bg = s.add.rectangle(0, 0, W, H, 0x111111, 0.75).setOrigin(0.5, 1);
-    const border = s.add.rectangle(0, 0, W, H).setOrigin(0.5, 1)
+    const bg = s.add.rectangle(0, 0, W, cardH, 0x111111, 0.75).setOrigin(0.5, 1);
+    const border = s.add.rectangle(0, 0, W, cardH).setOrigin(0.5, 1)
       .setStrokeStyle(1.5, col).setFillStyle(0, 0);
 
-    // Icon — left side, vertically centered in text area
-    const iconImg = s.add.image(-W / 2 + 13, -H + 30, 'icons', inst.frame)
+    const iconImg = s.add.image(-W / 2 + 13, -cardH + 30, 'icons', inst.frame)
       .setDisplaySize(20, 20).setOrigin(0.5, 0.5);
 
     const tx = -W / 2 + 28;
 
-    // Line 1 — name
-    const nameText = s.add.text(tx, -H + 5, inst.name, {
+    const nameText = s.add.text(tx, -cardH + 5, inst.name, {
       fontSize: '11px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
     }).setOrigin(0, 0);
 
-    // Line 2 — rarity
-    const rarText = s.add.text(tx, -H + 20, RARITY_NAMES[inst.rarity], {
+    const rarText = s.add.text(tx, -cardH + 20, RARITY_NAMES[inst.rarity], {
       fontSize: '10px', fontStyle: 'bold', color: colH, resolution: 4,
     }).setOrigin(0, 0);
 
-    // Line 3 — what it gives
-    const bonusText = s.add.text(tx, -H + 34, this.formatBonus(inst), {
-      fontSize: '10px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
-    }).setOrigin(0, 0);
+    // One line per bonus
+    const bonusObjs: Phaser.GameObjects.Text[] = inst.bonuses.map((b, i) =>
+      s.add.text(tx, -cardH + 34 + i * LINE, this.formatBonus(b), {
+        fontSize: '10px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
+      }).setOrigin(0, 0)
+    );
 
-    // Price row — decompose into red/gold/silver denominations
-    const bc   = balance.coins;
+    // Price row
+    const bc      = balance.coins;
     const reds    = Math.floor(inst.price / 100);
     const golds   = Math.floor((inst.price % 100) / 10);
     const silvers = inst.price % 10;
@@ -241,17 +261,17 @@ export class ShopSystem {
       cx += 16 + txt.width + 4;
     }
 
-    return s.add.container(0, 0, [bg, border, iconImg, nameText, rarText, bonusText, ...priceChildren]);
+    return s.add.container(0, 0, [bg, border, iconImg, nameText, rarText, ...bonusObjs, ...priceChildren]);
   }
 
-  private formatBonus(inst: ShopItemInstance): string {
-    switch (inst.statKey) {
-      case 'attack':         return `+${inst.value} sword damage`;
-      case 'arrowDamage':    return `+${inst.value} arrow damage`;
-      case 'armor':          return `+${inst.value} armor`;
-      case 'critMultiplier': return `+${inst.value}% crit damage`;
-      case 'critChance':     return `+${inst.value}% crit chance`;
-      case 'maxHp':          return `+${inst.value} max hp`;
+  private formatBonus(b: StatBonus): string {
+    switch (b.statKey) {
+      case 'attack':         return `+${b.value} sword damage`;
+      case 'arrowDamage':    return `+${b.value} arrow damage`;
+      case 'armor':          return `+${b.value} armor`;
+      case 'critMultiplier': return `+${b.value}% crit damage`;
+      case 'critChance':     return `+${b.value}% crit chance`;
+      case 'maxHp':          return `+${b.value} max hp`;
     }
   }
 }
