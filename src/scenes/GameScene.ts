@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
   private stairX         = 0;
   private stairY         = 0;
   private stairUsed      = false;
+  private transitioning  = false;
   private stairChargeMs  = 0;
   private stairBarGfx:   Phaser.GameObjects.Graphics | null = null;
   private floor          = 1;
@@ -498,7 +499,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (!this.player.active) return;
+    if (this.transitioning || !this.player.active) return;
     this.floatText.update(delta);
     this.arrowSystem.update(delta);
 
@@ -799,6 +800,8 @@ export class GameScene extends Phaser.Scene {
   // ── Floor / Game Over ─────────────────────────────────────────
 
   private nextFloor() {
+    if (this.transitioning) return;
+    this.transitioning = true;
     this.stairUsed = true;
     this.clearStairBar();
     this.registry.set('floor',     this.floor + 1);
