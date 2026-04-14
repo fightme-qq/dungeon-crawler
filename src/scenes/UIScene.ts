@@ -78,6 +78,9 @@ export class UIScene extends Phaser.Scene {
   private startTX = 0;
   private startTY = 0;
 
+  // Purchased item icons row
+  private itemIconsRow: Phaser.GameObjects.Image[] = [];
+
   // Visibility this frame (radius 5 around player)
   private currentVisible = new Set<number>(); // encoded row*mapW+col
   private prevPlayerTile = -1;
@@ -226,6 +229,7 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('coinsChanged',    this.onCoinsChanged,  this);
     this.game.events.on('abilityState',       this.onAbilityState,    this);
     this.game.events.on('playerStatsChanged', this.onStatsChanged,    this);
+    this.game.events.on('itemBought',         this.onItemBought,      this);
 
     this.events.once('shutdown', () => {
       this.game.events.off('playerHpChanged',    this.onHpChanged,     this);
@@ -235,6 +239,7 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off('coinsChanged',       this.onCoinsChanged,  this);
       this.game.events.off('abilityState',       this.onAbilityState,  this);
       this.game.events.off('playerStatsChanged', this.onStatsChanged,  this);
+      this.game.events.off('itemBought',         this.onItemBought,    this);
     });
   }
 
@@ -435,6 +440,33 @@ export class UIScene extends Phaser.Scene {
     this.statText?.setText(String(data.attack));
     this.arrowText?.setText(String(data.arrowDamage));
     this.armorText?.setText(String(data.armor));
+  }
+
+  private onItemBought(data: { frame: number; name: string }) {
+    const SZ  = 24;
+    const GAP = 4;
+    const startX = GAME_W / 2; // center the row
+    const y = GAME_H - PAD - AB_SZ - PAD - SZ / 2;
+
+    const idx = this.itemIconsRow.length;
+    // Reposition all icons centered
+    const totalW = (idx + 1) * (SZ + GAP) - GAP;
+    const x0 = GAME_W / 2 - totalW / 2;
+
+    const icon = this.add.image(0, y, 'icons', data.frame)
+      .setDisplaySize(SZ, SZ)
+      .setScrollFactor(0)
+      .setDepth(500)
+      .setAlpha(0.9);
+
+    this.itemIconsRow.push(icon);
+
+    // Reposition all
+    this.itemIconsRow.forEach((ic, i) => {
+      ic.setX(x0 + i * (SZ + GAP) + SZ / 2);
+    });
+
+    void startX; // suppress unused warning
   }
 
   /** Clockwise pie-sweep cooldown overlay for Q and E ability icons. */

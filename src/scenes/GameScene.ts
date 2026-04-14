@@ -753,6 +753,7 @@ export class GameScene extends Phaser.Scene {
       arrowDamage: this.stats.arrowDamage,
       armor:       this.stats.armor,
     });
+    this.game.events.emit('itemBought', { frame: inst.frame, name: inst.name });
   }
 
   // ── Stair bar ─────────────────────────────────────────────────
