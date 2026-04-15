@@ -9,7 +9,7 @@ const SFX_GROUPS: Record<string, string[]> = {
   player_death: ['sfx_pdeath'],
   enemy_hit:    ['sfx_ehit_1',  'sfx_ehit_2',  'sfx_ehit_3'],
   enemy_death:  ['sfx_edeath'],
-  chest:        ['sfx_chest_1', 'sfx_chest_2', 'sfx_chest_3', 'sfx_chest_4'],
+  chest:        ['sfx_chest_1', 'sfx_chest_2', 'sfx_chest_3'],
   buy:          ['sfx_buy'],
 };
 

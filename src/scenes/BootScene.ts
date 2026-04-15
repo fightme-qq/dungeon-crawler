@@ -102,7 +102,6 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('sfx_chest_1', `${sfx}01_chest_open_1.wav`);
     this.load.audio('sfx_chest_2', `${sfx}01_chest_open_2.wav`);
     this.load.audio('sfx_chest_3', `${sfx}01_chest_open_3.wav`);
-    this.load.audio('sfx_chest_4', `${sfx}01_chest_open_4.wav`);
     this.load.audio('sfx_buy',     `${sfx}02_chest_close_1.wav`);
   }
 
