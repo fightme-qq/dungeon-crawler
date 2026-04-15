@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 // SFX groups — AudioSystem picks randomly within each group on play()
 const SFX_GROUPS: Record<string, string[]> = {
   sword:        ['sfx_sword_1', 'sfx_sword_2', 'sfx_sword_3'],
-  lunge:        ['sfx_lunge_1', 'sfx_lunge_2'],
+  lunge:        ['sfx_ehit_1',  'sfx_ehit_2'],
   arrow:        ['sfx_arrow'],
   player_hit:   ['sfx_phit_1',  'sfx_phit_2',  'sfx_phit_3'],
   player_death: ['sfx_pdeath'],
@@ -14,7 +14,7 @@ const SFX_GROUPS: Record<string, string[]> = {
 };
 
 const MUSIC_VOL = 0.35;
-const SFX_VOL   = 0.55;
+const SFX_VOL   = 0.35;
 
 export class AudioSystem {
   private scene:            Phaser.Scene;
