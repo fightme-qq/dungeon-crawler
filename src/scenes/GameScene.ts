@@ -12,7 +12,7 @@ import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
 import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
-import { getStats, setStats, clearStats, PlayerStats } from '../systems/RunState';
+import { getStats, setStats, clearStats, saveRun, loadRun, clearRun, PlayerStats } from '../systems/RunState';
 import { ShopSystem, ShopItemInstance } from '../systems/ShopSystem';
 import { t } from '../lang';
 
@@ -84,6 +84,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // If registry has no floor (fresh page load, not a floor transition),
+    // try to restore a saved run from localStorage (Rule 1.9)
+    if (this.registry.get('floor') == null) {
+      const save = loadRun();
+      if (save) {
+        this.registry.set('floor',     save.floor);
+        this.registry.set('playerHp',  save.hp);
+        this.registry.set('coinValue', save.coins);
+        setStats(this.registry, save.stats);
+      }
+    }
+
     this.floor      = this.registry.get('floor') ?? 1;
     this.coinValue  = this.registry.get('coinValue') ?? 0;
     this.stairUsed    = false;
@@ -821,6 +833,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('playerHp',  this.player.hp);
     this.registry.set('coinValue', this.coinValue);
     setStats(this.registry, this.stats);
+    saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats);
     this.shopSystem?.destroy();
     this.shopSystem = null;
     this.scene.stop('UIScene');
@@ -835,6 +848,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.remove('playerHp');
     this.registry.remove('coinValue');
     clearStats(this.registry);
+    clearRun();
 
     this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7).setDepth(900).setScrollFactor(0);
     this.add.text(640, 330, t().gameOver, { fontSize: '48px', color: '#ff4444', stroke: '#000', strokeThickness: 4 })
