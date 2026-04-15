@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 const SFX_GROUPS: Record<string, string[]> = {
   sword:        ['sfx_sword_1', 'sfx_sword_2', 'sfx_sword_3'],
   lunge:        ['sfx_ehit_1',  'sfx_ehit_2'],
-  arrow:        ['sfx_arrow'],
+  arrow:        ['sfx_arrow_1', 'sfx_arrow_2'],
   player_hit:   ['sfx_phit_1',  'sfx_phit_2',  'sfx_phit_3'],
   player_death: ['sfx_pdeath'],
   enemy_hit:    ['sfx_ehit_1',  'sfx_ehit_2',  'sfx_ehit_3'],

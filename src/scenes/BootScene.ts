@@ -86,7 +86,8 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('sfx_sword_3', `${sfx}07_human_atk_sword_3.wav`);
     this.load.audio('sfx_lunge_1', `${sfx}08_human_charge_1.wav`);
     this.load.audio('sfx_lunge_2', `${sfx}08_human_charge_2.wav`);
-    this.load.audio('sfx_arrow',   `${sfx}10_human_special_atk_1.wav`);
+    this.load.audio('sfx_arrow_1', `${sfx}27_sword_miss_1.wav`);
+    this.load.audio('sfx_arrow_2', `${sfx}27_sword_miss_2.wav`);
     // Player damage / death
     this.load.audio('sfx_phit_1',  `${sfx}11_human_damage_1.wav`);
     this.load.audio('sfx_phit_2',  `${sfx}11_human_damage_2.wav`);
