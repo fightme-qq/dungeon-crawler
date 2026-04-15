@@ -14,7 +14,7 @@ const SFX_GROUPS: Record<string, string[]> = {
 };
 
 const MUSIC_VOL = 0.35;
-const SFX_VOL   = 0.35;
+const SFX_VOL   = 0.25;
 
 export class AudioSystem {
   private scene:            Phaser.Scene;
