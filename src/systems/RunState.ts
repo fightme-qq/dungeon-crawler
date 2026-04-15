@@ -13,16 +13,22 @@ export interface PlayerStats {
 
 const SAVE_KEY = 'ironProtocol_save_v1';
 
+export interface PurchasedItem { frame: number; name: string; }
+
 interface SaveData {
-  floor:  number;
-  hp:     number;
-  coins:  number;
-  stats:  PlayerStats;
+  floor:          number;
+  hp:             number;
+  coins:          number;
+  stats:          PlayerStats;
+  purchasedItems: PurchasedItem[];
 }
 
-export function saveRun(floor: number, hp: number, coins: number, stats: PlayerStats): void {
+export function saveRun(
+  floor: number, hp: number, coins: number,
+  stats: PlayerStats, purchasedItems: PurchasedItem[],
+): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ floor, hp, coins, stats }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ floor, hp, coins, stats, purchasedItems }));
   } catch {}
 }
 
@@ -30,7 +36,9 @@ export function loadRun(): SaveData | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SaveData;
+    const data = JSON.parse(raw) as SaveData;
+    if (!data.purchasedItems) data.purchasedItems = []; // back-compat
+    return data;
   } catch {
     return null;
   }

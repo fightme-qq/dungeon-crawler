@@ -222,6 +222,10 @@ export class UIScene extends Phaser.Scene {
     const dungeonData = this.registry.get('dungeonData');
     if (dungeonData) this.onDungeonReady(dungeonData);
 
+    // Restore purchased item icons that survived a floor transition
+    const savedItems: { frame: number; name: string }[] = this.registry.get('purchasedItems') ?? [];
+    for (const item of savedItems) this.onItemBought(item);
+
     this.game.events.on('playerHpChanged', this.onHpChanged,     this);
     this.game.events.on('floorChanged',    this.onFloorChanged,  this);
     this.game.events.on('dungeonReady',    this.onDungeonReady,  this);

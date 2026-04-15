@@ -12,7 +12,7 @@ import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
 import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
-import { getStats, setStats, clearStats, saveRun, loadRun, clearRun, PlayerStats } from '../systems/RunState';
+import { getStats, setStats, clearStats, saveRun, loadRun, clearRun, PlayerStats, PurchasedItem } from '../systems/RunState';
 import { ShopSystem, ShopItemInstance } from '../systems/ShopSystem';
 import { AudioSystem } from '../systems/AudioSystem';
 import { t } from '../lang';
@@ -92,9 +92,10 @@ export class GameScene extends Phaser.Scene {
     if (this.registry.get('floor') == null) {
       const save = loadRun();
       if (save) {
-        this.registry.set('floor',     save.floor);
-        this.registry.set('playerHp',  save.hp);
-        this.registry.set('coinValue', save.coins);
+        this.registry.set('floor',          save.floor);
+        this.registry.set('playerHp',       save.hp);
+        this.registry.set('coinValue',      save.coins);
+        this.registry.set('purchasedItems', save.purchasedItems ?? []);
         setStats(this.registry, save.stats);
       }
     }
@@ -806,6 +807,11 @@ export class GameScene extends Phaser.Scene {
       arrowDamage: this.stats.arrowDamage,
       armor:       this.stats.armor,
     });
+    if (inst.frame != null) {
+      const list: PurchasedItem[] = this.registry.get('purchasedItems') ?? [];
+      list.push({ frame: inst.frame, name: inst.name });
+      this.registry.set('purchasedItems', list);
+    }
     this.game.events.emit('itemBought', { frame: inst.frame, name: inst.name });
   }
 
@@ -860,7 +866,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('playerHp',  this.player.hp);
     this.registry.set('coinValue', this.coinValue);
     setStats(this.registry, this.stats);
-    saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats);
+    saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats, this.registry.get('purchasedItems') ?? []);
     this.audio.destroy();
     this.shopSystem?.destroy();
     this.shopSystem = null;
@@ -875,6 +881,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.remove('floor');
     this.registry.remove('playerHp');
     this.registry.remove('coinValue');
+    this.registry.remove('purchasedItems');
     clearStats(this.registry);
     clearRun();
 
