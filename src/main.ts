@@ -32,6 +32,16 @@ setTimeout(() => {
       const ysdk = await YaGames.init();
       (window as any).ysdk = ysdk;
       refreshLang(ysdk); // передаём объект напрямую — Яндекс фиксирует чтение i18n.lang
+
+      // Правило 1.3 / 1.19.4: пауза и возобновление по событиям платформы
+      ysdk.on('game_api_pause', () => {
+        (window as any).__phaserGame?.pause();
+        ysdk.features?.GameplayAPI?.stop();
+      });
+      ysdk.on('game_api_resume', () => {
+        (window as any).__phaserGame?.resume();
+        ysdk.features?.GameplayAPI?.start();
+      });
     }
   } catch {
     // SDK недоступен (локальная разработка) — продолжаем без него
@@ -61,4 +71,4 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, GameScene, UIScene]
 };
 
-new Phaser.Game(config);
+(window as any).__phaserGame = new Phaser.Game(config);
