@@ -14,12 +14,13 @@ export interface StatBonus {
 }
 
 export interface ShopItemInstance {
-  statKey: StatKey;    // primary — drives icon + name
-  rarity:  number;     // 0-4
-  bonuses: StatBonus[]; // 1 bonus for C/U/R, 2 for Epic, 3 for Legendary
-  price:   number;
-  name:    string;
-  frame:   number;
+  statKey:    StatKey;
+  rarity:     number;
+  bonuses:    StatBonus[];
+  price:      number;
+  name:       string;
+  frame:      number;
+  healToFull?: boolean; // special stair item — restores all HP
 }
 
 interface WorldItem {
@@ -86,6 +87,21 @@ export class ShopSystem {
       const inst = this.rollItem(key);
       this.createWorldItem(wx, wy, inst);
     }
+  }
+
+  spawnHealItem(wx: number, wy: number): void {
+    const foodFrames = [fr(32,0),fr(32,1),fr(32,2),fr(32,3),fr(32,4),fr(32,5),fr(32,6),fr(32,7),
+                        fr(33,0),fr(33,1),fr(33,2),fr(33,3),fr(33,4),fr(33,5),fr(33,6),fr(33,7)];
+    const inst: ShopItemInstance = {
+      statKey:    'maxHp',
+      rarity:     0,
+      bonuses:    [],
+      price:      balance.coins.goldValue * 5, // 5 gold = 50 silver
+      name:       t().healItemName,
+      frame:      pick(foodFrames),
+      healToFull: true,
+    };
+    this.createWorldItem(wx, wy, inst);
   }
 
   // ── Update — call every frame from GameScene ──────────────────────
@@ -191,22 +207,22 @@ export class ShopSystem {
 
     // Card container — always above player/enemies
     const card = this.buildCard(inst);
-    card.setPosition(wx, wy - iconSz / 2 - 6).setDepth(1000);
+    card.setPosition(wx, wy - iconSz / 2 - 6).setDepth(100000);
 
     // Prompt text — always above player/enemies
     const prompt = scene.add.text(wx, wy + iconSz / 2 + 4, t().pressEBuy, {
       fontSize: '13px', fontStyle: 'bold', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
       resolution: 4,
-    }).setOrigin(0.5, 0).setDepth(1000).setVisible(false);
+    }).setOrigin(0.5, 0).setDepth(100000).setVisible(false);
 
     this.items.push({ inst, sprite, card, prompt, active: true });
   }
 
   private buildCard(inst: ShopItemInstance): Phaser.GameObjects.Container {
     const s    = this.scene;
-    const col  = RARITY_COLORS_INT[inst.rarity];
-    const colH = RARITY_COLORS_HEX[inst.rarity];
+    const col  = inst.healToFull ? 0x44ff88 : RARITY_COLORS_INT[inst.rarity];
+    const colH = inst.healToFull ? '#44ff88' : RARITY_COLORS_HEX[inst.rarity];
     const LINE  = 13;
     const PAD_L = 28; // left text offset from card edge
     const PAD_R = 10;
@@ -217,12 +233,17 @@ export class ShopSystem {
       fontSize: '11px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
     }).setOrigin(0, 0);
 
-    const rarText = s.add.text(0, 0, t().rarities[inst.rarity], {
+    const rarLabel = inst.healToFull ? t().healItemRarity : t().rarities[inst.rarity];
+    const rarText = s.add.text(0, 0, rarLabel, {
       fontSize: '10px', fontStyle: 'bold', color: colH, resolution: 4,
     }).setOrigin(0, 0);
 
-    const bonusObjs: Phaser.GameObjects.Text[] = inst.bonuses.map(b =>
-      s.add.text(0, 0, this.formatBonus(b), {
+    const bonusLines = inst.healToFull
+      ? [t().healItemEffect]
+      : inst.bonuses.map(b => this.formatBonus(b));
+
+    const bonusObjs: Phaser.GameObjects.Text[] = bonusLines.map(line =>
+      s.add.text(0, 0, line, {
         fontSize: '10px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
       }).setOrigin(0, 0)
     );

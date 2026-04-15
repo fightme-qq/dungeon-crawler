@@ -5,6 +5,7 @@ import { defineConfig, Plugin } from 'vite';
 function fixScriptTags(): Plugin {
   return {
     name: 'fix-script-tags',
+    apply: 'build',
     transformIndexHtml(html: string) {
       return html
         .replace(/ crossorigin="?anonymous"?/g, '')
@@ -18,7 +19,7 @@ export default defineConfig({
   plugins: [fixScriptTags()],
   base: process.env.GITHUB_ACTIONS ? '/dungeon-crawler/' : './',
   server: {
-    port: 3000,
+    port: 3007,
     host: '127.0.0.1'
   },
   build: {
