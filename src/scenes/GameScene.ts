@@ -14,6 +14,7 @@ import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
 import { getStats, setStats, clearStats, saveRun, loadRun, clearRun, PlayerStats } from '../systems/RunState';
 import { ShopSystem, ShopItemInstance } from '../systems/ShopSystem';
+import { AudioSystem } from '../systems/AudioSystem';
 import { t } from '../lang';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
@@ -77,6 +78,8 @@ export class GameScene extends Phaser.Scene {
   private floatText!: FloatTextSystem;
   private arrowSystem!: ArrowSystem;
   private shopSystem: ShopSystem | null = null;
+  private audio!: AudioSystem;
+  private prevEnemyCount = 0;
   private stats!: PlayerStats;
 
   constructor() {
@@ -175,11 +178,15 @@ export class GameScene extends Phaser.Scene {
     const px = playerStart.x * TILE_S + TILE_S / 2;
     const py = playerStart.y * TILE_S + TILE_S / 2;
     this.player = new Player(this, px, py, this.stats, this.registry.get('playerHp'));
+    this.audio = new AudioSystem(this);
+    this.audio.setBattleMode(false);
+
     this.player.onHpChanged = (current, max) => {
       this.registry.set('playerHp', current);
       this.game.events.emit('playerHpChanged', current, max);
     };
-    this.player.onDie = () => this.showGameOver();
+    this.player.onTakeDamage = () => this.audio.play('player_hit');
+    this.player.onDie = () => { this.audio.play('player_death'); this.showGameOver(); };
 
     // Sync registry so UIScene.create() reads correct values synchronously
     this.registry.set('floor',    this.floor);
@@ -367,6 +374,7 @@ export class GameScene extends Phaser.Scene {
     const el = balance.enemyLoot;
     const bc = balance.coins;
     const onEnemyDeath = (x: number, y: number) => {
+      this.audio.play('enemy_death');
       const r = Math.random();
       if (r < el.redChance)    { this.dropCoin(x, y, bc.redFrame,    bc.redValue);    return; }
       if (r < el.goldChance)   { this.dropCoin(x, y, bc.goldFrame,   bc.goldValue);   return; }
@@ -393,7 +401,7 @@ export class GameScene extends Phaser.Scene {
       const cx = col * TILE_S + TILE_S / 2;
       const cy = row * TILE_S + TILE_S / 2 + TILE_S;
       const chest = new Chest(this, cx, cy);
-      chest.onOpen = (ox, oy) => this.spawnChestLoot(ox, oy);
+      chest.onOpen = (ox, oy) => { this.audio.play('chest'); this.spawnChestLoot(ox, oy); };
       this.chests.push(chest);
       this.physics.add.collider(this.player, chest);
     };
@@ -521,6 +529,13 @@ export class GameScene extends Phaser.Scene {
     if (this.transitioning || !this.player.active) return;
     this.floatText.update(delta);
     this.arrowSystem.update(delta);
+
+    // Switch music based on whether enemies are alive
+    const enemyCount = this.enemies.countActive(true);
+    if (enemyCount !== this.prevEnemyCount) {
+      this.prevEnemyCount = enemyCount;
+      this.audio.setBattleMode(enemyCount > 0);
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.processAttack1();
     if (Phaser.Input.Keyboard.JustDown(this.qKey))     this.processAttack2();
@@ -687,6 +702,7 @@ export class GameScene extends Phaser.Scene {
       const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
+      this.audio.play('enemy_hit');
     }
   }
 
@@ -701,20 +717,29 @@ export class GameScene extends Phaser.Scene {
       const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
+      this.audio.play('enemy_hit');
     }
   }
 
   // Attack 1 — basic swing (LMB / Space)
   private processAttack1(): void {
     const hit = this.player.tryAttack1();
-    if (hit) { this.hitEnemiesRect(hit, this.stats.attack); this.hitChestsRect(hit, this.stats.attack); }
+    if (hit) {
+      this.audio.play('sword');
+      this.hitEnemiesRect(hit, this.stats.attack);
+      this.hitChestsRect(hit, this.stats.attack);
+    }
   }
 
   // Attack 2 — lunge (RMB / Q) — 30% more knockback; scales with stats.attack proportionally
   private processAttack2(): void {
     const hit  = this.player.tryAttack2();
     const dmg2 = Math.round(this.stats.attack * (balance.player.attack2.damage / balance.player.attack));
-    if (hit) { this.hitEnemiesRect(hit, dmg2, 1.3); this.hitChestsRect(hit, dmg2); }
+    if (hit) {
+      this.audio.play('lunge');
+      this.hitEnemiesRect(hit, dmg2, 1.3);
+      this.hitChestsRect(hit, dmg2);
+    }
   }
 
   // Attack 3 — arrow shot (E), aimed at mouse but clamped to facing half
@@ -739,6 +764,7 @@ export class GameScene extends Phaser.Scene {
     // Spawn arrow after release frame
     this.time.delayedCall(balance.player.attack3.shootDelay, () => {
       if (!this.player.active) return;
+      this.audio.play('arrow');
       this.arrowSystem.shoot(this.player.x, this.player.y, clamped);
     });
   }
@@ -746,6 +772,7 @@ export class GameScene extends Phaser.Scene {
   // ── Shop purchase ─────────────────────────────────────────────
 
   private applyPurchase(inst: ShopItemInstance): void {
+    this.audio.play('buy');
     this.coinValue -= inst.price;
     this.registry.set('coinValue', this.coinValue);
     this.game.events.emit('coinsChanged', this.coinValue);
@@ -834,6 +861,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('coinValue', this.coinValue);
     setStats(this.registry, this.stats);
     saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats);
+    this.audio.destroy();
     this.shopSystem?.destroy();
     this.shopSystem = null;
     this.scene.stop('UIScene');

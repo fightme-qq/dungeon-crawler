@@ -46,8 +46,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: { up: Key; down: Key; left: Key; right: Key };
 
-  onHpChanged: (current: number, max: number) => void = () => {};
-  onDie: () => void = () => {};
+  onHpChanged:  (current: number, max: number) => void = () => {};
+  onTakeDamage: () => void = () => {};
+  onDie:        () => void = () => {};
 
   constructor(scene: Phaser.Scene, x: number, y: number, stats: PlayerStats, savedHp?: number) {
     super(scene, x, y, 'soldier-idle');
@@ -236,6 +237,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const dmg = calcDamage(rawAtk, this._armor);
     this._hp -= dmg;
+    this.onTakeDamage();
     this.onHpChanged(Math.max(0, this._hp), this.maxHp);
 
     if (this._hp <= 0) {

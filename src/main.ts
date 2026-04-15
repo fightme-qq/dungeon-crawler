@@ -35,11 +35,15 @@ setTimeout(() => {
 
       // Правило 1.3 / 1.19.4: пауза и возобновление по событиям платформы
       ysdk.on('game_api_pause', () => {
-        (window as any).__phaserGame?.pause();
+        const g = (window as any).__phaserGame;
+        g?.pause();
+        if (g?.sound) g.sound.mute = true;
         ysdk.features?.GameplayAPI?.stop();
       });
       ysdk.on('game_api_resume', () => {
-        (window as any).__phaserGame?.resume();
+        const g = (window as any).__phaserGame;
+        g?.resume();
+        if (g?.sound) g.sound.mute = false;
         ysdk.features?.GameplayAPI?.start();
       });
     }

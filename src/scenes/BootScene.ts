@@ -73,6 +73,36 @@ export class BootScene extends Phaser.Scene {
     this.load.image('_peaks2', `${peaksBase}2.png`);
     this.load.image('_peaks3', `${peaksBase}3.png`);
     this.load.image('_peaks4', `${peaksBase}4.png`);
+
+    // ── Audio ────────────────────────────────────────────────────────────────
+    const mus = 'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/';
+    this.load.audio('music_regular', `${mus}Goblins_Den_(Regular).wav`);
+    this.load.audio('music_battle',  `${mus}Goblins_Dance_(Battle).wav`);
+
+    const sfx = 'music/Minifantasy_Dungeon_SFX/';
+    // Player attack
+    this.load.audio('sfx_sword_1', `${sfx}07_human_atk_sword_1.wav`);
+    this.load.audio('sfx_sword_2', `${sfx}07_human_atk_sword_2.wav`);
+    this.load.audio('sfx_sword_3', `${sfx}07_human_atk_sword_3.wav`);
+    this.load.audio('sfx_lunge_1', `${sfx}08_human_charge_1.wav`);
+    this.load.audio('sfx_lunge_2', `${sfx}08_human_charge_2.wav`);
+    this.load.audio('sfx_arrow',   `${sfx}10_human_special_atk_1.wav`);
+    // Player damage / death
+    this.load.audio('sfx_phit_1',  `${sfx}11_human_damage_1.wav`);
+    this.load.audio('sfx_phit_2',  `${sfx}11_human_damage_2.wav`);
+    this.load.audio('sfx_phit_3',  `${sfx}11_human_damage_3.wav`);
+    this.load.audio('sfx_pdeath',  `${sfx}14_human_death_spin.wav`);
+    // Enemy hit / death
+    this.load.audio('sfx_ehit_1',  `${sfx}26_sword_hit_1.wav`);
+    this.load.audio('sfx_ehit_2',  `${sfx}26_sword_hit_2.wav`);
+    this.load.audio('sfx_ehit_3',  `${sfx}26_sword_hit_3.wav`);
+    this.load.audio('sfx_edeath',  `${sfx}24_orc_death_spin.wav`);
+    // Chest / buy
+    this.load.audio('sfx_chest_1', `${sfx}01_chest_open_1.wav`);
+    this.load.audio('sfx_chest_2', `${sfx}01_chest_open_2.wav`);
+    this.load.audio('sfx_chest_3', `${sfx}01_chest_open_3.wav`);
+    this.load.audio('sfx_chest_4', `${sfx}01_chest_open_4.wav`);
+    this.load.audio('sfx_buy',     `${sfx}02_chest_close_1.wav`);
   }
 
   create() {
