@@ -31,7 +31,7 @@ setTimeout(() => {
     if (typeof YaGames !== 'undefined') {
       const ysdk = await YaGames.init();
       (window as any).ysdk = ysdk;
-      refreshLang();
+      refreshLang(ysdk); // передаём объект напрямую — Яндекс фиксирует чтение i18n.lang
     }
   } catch {
     // SDK недоступен (локальная разработка) — продолжаем без него

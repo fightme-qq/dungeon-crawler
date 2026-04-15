@@ -1,22 +1,25 @@
-// Определяем язык один раз при старте
-function detectLang(): 'ru' | 'en' {
-  try {
-    const ysdk = (window as any).ysdk;
-    if (ysdk?.environment?.i18n?.lang) {
-      const l = ysdk.environment.i18n.lang as string;
-      if (['ru', 'be', 'kk', 'uk', 'uz'].includes(l)) return 'ru';
-      return 'en';
-    }
-  } catch {}
-  // Fallback на браузер только если SDK недоступен
+// Определяем язык один раз при старте (до SDK — только браузерный фолбэк)
+function detectLangFallback(): 'ru' | 'en' {
+  // URL-параметр ?lang=ru для локального тестирования
+  const urlLang = new URLSearchParams(window.location.search).get('lang');
+  if (urlLang === 'ru') return 'ru';
+  if (urlLang === 'en') return 'en';
   return navigator.language.startsWith('ru') ? 'ru' : 'en';
 }
 
-export let LANG: 'ru' | 'en' = detectLang();
+export let LANG: 'ru' | 'en' = detectLangFallback();
 
-// Перезагрузить язык после инициализации SDK
-export function refreshLang(): void {
-  LANG = detectLang();
+// Перезагрузить язык из объекта SDK (ysdk передаётся напрямую — Яндекс фиксирует доступ к i18n.lang)
+export function refreshLang(ysdk?: any): void {
+  try {
+    // Читаем i18n.lang напрямую из объекта ysdk — это обязательно для зелёного индикатора п. 2.14
+    const sdkLang: string | undefined = ysdk?.environment?.i18n?.lang;
+    if (sdkLang) {
+      LANG = ['ru', 'be', 'kk', 'uk', 'uz'].includes(sdkLang) ? 'ru' : 'en';
+      return;
+    }
+  } catch {}
+  LANG = detectLangFallback();
 }
 
 // ── Строки ────────────────────────────────────────────────────────────────────
@@ -30,6 +33,10 @@ const STRINGS = {
     needSilver:     (n: number) => `Need ${n} silver`,
 
     rarities: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'],
+
+    healItemName:   'Healing Meal',
+    healItemEffect: 'Restores full HP',
+    healItemRarity: 'Special',
 
     statBonus: {
       attack:         (v: number) => `+${v} sword damage`,
@@ -58,6 +65,10 @@ const STRINGS = {
     needSilver:     (n: number) => `Нужно ${n} серебра`,
 
     rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный'],
+
+    healItemName:   'Целебная еда',
+    healItemEffect: 'Восстанавливает все HP',
+    healItemRarity: 'Особый',
 
     statBonus: {
       attack:         (v: number) => `+${v} урон мечом`,
