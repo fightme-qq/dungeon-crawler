@@ -17,6 +17,14 @@ function trySignalReady() {
 }
 (window as any).__trySignalReady = trySignalReady;
 
+// Fallback: если через 5 секунд SDK не инициализировался — всё равно сигналим
+setTimeout(() => {
+  if (!(window as any).__sdkDone) {
+    (window as any).__sdkDone = true;
+    trySignalReady();
+  }
+}, 5000);
+
 // Yandex SDK — инициализируем асинхронно, не блокируем запуск игры
 (async () => {
   try {
