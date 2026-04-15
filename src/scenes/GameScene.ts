@@ -489,6 +489,11 @@ export class GameScene extends Phaser.Scene {
     const startRoom = dungeon.rooms.find(r => r.type === 'start');
     if (startRoom) this.shopSystem.spawnInRoom(startRoom);
 
+    // Heal item near stair — 100% on floor 1, 25% otherwise
+    if (this.floor === 1 || Math.random() < 0.25) {
+      this.shopSystem.spawnHealItem(this.stairX + TILE_S, this.stairY);
+    }
+
     this.scene.launch('UIScene');
     (window as any).ysdk?.features?.GameplayAPI?.start();
     this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
@@ -732,6 +737,12 @@ export class GameScene extends Phaser.Scene {
     this.coinValue -= inst.price;
     this.registry.set('coinValue', this.coinValue);
     this.game.events.emit('coinsChanged', this.coinValue);
+
+    if (inst.healToFull) {
+      this.player.heal(this.player.maxHp);
+      this.registry.set('playerHp', this.player.hp);
+      this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
+    }
 
     for (const b of inst.bonuses) {
       switch (b.statKey) {
