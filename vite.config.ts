@@ -1,18 +1,21 @@
 import { defineConfig, Plugin } from 'vite';
 
-// Removes crossorigin attribute from script/link tags in built HTML.
-// Yandex Games CDN doesn't send CORS headers — crossorigin causes module load failure.
-function removeCrossorigin(): Plugin {
+// Removes crossorigin and type="module" from script tags in built HTML.
+// Yandex Games CDN blocks ES modules — build as IIFE + plain <script> tag.
+function fixScriptTags(): Plugin {
   return {
-    name: 'remove-crossorigin',
+    name: 'fix-script-tags',
     transformIndexHtml(html: string) {
-      return html.replace(/ crossorigin="?anonymous"?/g, '').replace(/ crossorigin/g, '');
+      return html
+        .replace(/ crossorigin="?anonymous"?/g, '')
+        .replace(/ crossorigin/g, '')
+        .replace(/ type="module"/g, '');
     },
   };
 }
 
 export default defineConfig({
-  plugins: [removeCrossorigin()],
+  plugins: [fixScriptTags()],
   base: process.env.GITHUB_ACTIONS ? '/dungeon-crawler/' : './',
   server: {
     port: 3000,
@@ -22,6 +25,12 @@ export default defineConfig({
     minify: 'esbuild',
     target: 'es2017',
     modulePreload: false,
+    rollupOptions: {
+      output: {
+        format: 'iife',
+        name: 'DungeonCrawler',
+      },
+    },
   },
   esbuild: {
     drop: ['console', 'debugger'],
