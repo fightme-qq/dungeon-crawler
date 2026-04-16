@@ -45,8 +45,12 @@ export class AudioSystem {
   private music:           Phaser.Sound.BaseSound | null = null;
   private currentMusicKey: string  = '';
   private battleMode:      boolean = false;
-  private pendingBattle:   boolean | null = null; // queued setBattleMode before load
-  private ready = false;
+  private pendingBattle:   boolean | null = null;
+  private ready    = false;
+  private destroyed = false;
+
+  // Stable callback reference so we can remove it in destroy()
+  private readonly onLoadComplete = () => this.onReady();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -55,8 +59,8 @@ export class AudioSystem {
 
   // ── Music ──────────────────────────────────────────────────────────────────
 
-  /** Switch between regular / battle music. No-op if already on that track. */
   setBattleMode(battle: boolean): void {
+    if (this.destroyed) return;
     if (!this.ready) { this.pendingBattle = battle; return; }
     if (this.battleMode === battle && this.music) return;
     this.battleMode = battle;
@@ -71,7 +75,7 @@ export class AudioSystem {
   // ── SFX ───────────────────────────────────────────────────────────────────
 
   play(group: string): void {
-    if (!this.ready) return;
+    if (!this.ready || this.destroyed) return;
     const keys = SFX_GROUPS[group];
     if (!keys?.length) return;
     const key = keys[Math.floor(Math.random() * keys.length)];
@@ -83,6 +87,10 @@ export class AudioSystem {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   destroy(): void {
+    this.destroyed = true;
+    // Remove loader listener BEFORE scene tears down to prevent the
+    // "Cannot read properties of undefined (reading 'events')" crash
+    try { this.scene.load.off('complete', this.onLoadComplete); } catch {}
     this.music?.stop();
     this.music = null;
     this.currentMusicKey = '';
@@ -104,16 +112,16 @@ export class AudioSystem {
     }
 
     if (queued === 0) {
-      // All already cached (floor transition)
       this.onReady();
       return;
     }
 
-    loader.once('complete', () => this.onReady());
+    loader.once('complete', this.onLoadComplete);
     loader.start();
   }
 
   private onReady(): void {
+    if (this.destroyed) return;
     this.ready = true;
     const battle = this.pendingBattle ?? false;
     this.pendingBattle = null;
