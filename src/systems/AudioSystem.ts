@@ -41,7 +41,7 @@ const AUDIO_FILES: Record<string, string> = {
   sfx_buy:       'music/Minifantasy_Dungeon_SFX/02_chest_close_1.wav',
 };
 
-const MUSIC_VOL = 0.35;
+const MUSIC_VOL = 0.15;
 const SFX_VOL   = 0.25;
 
 export class AudioSystem {
