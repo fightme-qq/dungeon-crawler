@@ -101,6 +101,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   create() {
+    // Reset instance state that survives scene stop/launch (constructor doesn't re-run)
+    this.itemIconsRow = [];
+
     // ── HP бар (CrimsonFantasyGUI CriticalDamage-Sheet) ─────────────────────
     // Нижний слой: пустой бар (фрейм 19) — всегда виден полностью
     this.hpBarEmpty = this.add.sprite(PAD, PAD, 'hp-bar', 19)
