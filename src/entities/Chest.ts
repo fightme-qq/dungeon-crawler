@@ -29,7 +29,7 @@ export class Chest extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.blinkTimer = 150;
     this.setTint(0xff6666);
-    this.scene.time.delayedCall(80, () => this.clearTint());
+    this.scene.time.delayedCall(80, () => { if (this.active) this.clearTint(); });
 
     if (this.hp <= 0) this.open();
   }
@@ -46,17 +46,20 @@ export class Chest extends Phaser.Physics.Arcade.Sprite {
     this.scene.tweens.addCounter({
       from: 0, to: 3, duration: 320,
       onUpdate: (tween) => {
-        this.setFrame(Math.round(tween.getValue() as number));
+        if (this.active) this.setFrame(Math.round(tween.getValue() as number));
       },
       onComplete: () => {
+        if (!this.active) return;
         if (this.onOpen) this.onOpen(this.x, this.y);
         // Fade out after a moment
         this.scene.time.delayedCall(400, () => {
+          if (!this.active) return;
           this.scene.tweens.add({
             targets: this,
             alpha: 0,
             duration: 300,
             onComplete: () => {
+              if (!this.active) return;
               (this.body as Phaser.Physics.Arcade.StaticBody).enable = false;
               this.destroy();
             },

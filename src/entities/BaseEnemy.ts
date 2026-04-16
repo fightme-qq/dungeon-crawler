@@ -232,7 +232,7 @@ export abstract class BaseEnemy extends Phaser.Physics.Arcade.Sprite {
         const mx = (this.x + this.player.x) / 2;
         const my = (this.y + this.player.y) / 2;
         const flash = this.scene.add.rectangle(mx, my, 14, 14, 0xff2222, 0.85).setDepth(this.depth + 1);
-        this.scene.time.delayedCall(100, () => flash.destroy());
+        this.scene.time.delayedCall(100, () => { if (flash.active) flash.destroy(); });
       }
     }
 
