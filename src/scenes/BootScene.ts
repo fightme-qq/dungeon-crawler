@@ -6,6 +6,16 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    // ── Loading bar ───────────────────────────────────────────────────────────
+    const W = 400, H = 20, x = (1280 - W) / 2, y = 720 / 2;
+    this.add.rectangle(640, 360, 1280, 720, 0x111111);
+    this.add.text(640, y - 40, 'Loading...', {
+      fontSize: '20px', color: '#ffffff', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5);
+    const barBg  = this.add.rectangle(x, y, W, H, 0x333333).setOrigin(0, 0);
+    const barFill = this.add.rectangle(x, y, 0, H, 0x44aaff).setOrigin(0, 0);
+    this.load.on('progress', (v: number) => barFill.setSize(W * v, H));
+
     // Tileset — floor, walls (16×16 grid)
     this.load.spritesheet('tileset', 'assets/tiles/Dungeon_Tileset.png', {
       frameWidth: 16, frameHeight: 16,
