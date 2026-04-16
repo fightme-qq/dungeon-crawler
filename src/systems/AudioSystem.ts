@@ -13,9 +13,13 @@ const SFX_GROUPS: Record<string, string[]> = {
   buy:          ['sfx_buy'],
 };
 
+const MUSIC_POOL = ['music_regular', 'music_battle', 'music_ambient1', 'music_ambient2'];
+
 const AUDIO_FILES: Record<string, string> = {
-  music_regular: 'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Den_(Regular).wav',
-  music_battle:  'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Dance_(Battle).wav',
+  music_regular:  'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Den_(Regular).wav',
+  music_battle:   'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Dance_(Battle).wav',
+  music_ambient1: 'music/Minifantasy_Dungeon_Music/dusk-memory-aesthetic-danger-lion-x-main-version-11376-02-13.mp3',
+  music_ambient2: 'music/Minifantasy_Dungeon_Music/time-lost-ill-kitchen-main-version-6513-03-14.mp3',
   sfx_sword_1:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_1.wav',
   sfx_sword_2:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_2.wav',
   sfx_sword_3:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_3.wav',
@@ -41,90 +45,108 @@ const MUSIC_VOL = 0.35;
 const SFX_VOL   = 0.25;
 
 export class AudioSystem {
-  private scene:           Phaser.Scene;
-  private music:           Phaser.Sound.BaseSound | null = null;
-  private currentMusicKey: string  = '';
-  private battleMode:      boolean = false;
-  private pendingBattle:   boolean | null = null;
-  private ready    = false;
-  private destroyed = false;
+  private scene:          Phaser.Scene;
+  private music:          Phaser.Sound.BaseSound | null = null;
+  private currentKey      = '';
+  private sfxReady        = false;
+  private destroyed       = false;
 
-  // Stable callback reference so we can remove it in destroy()
   private readonly onLoadComplete = () => this.onReady();
+  private readonly onMusicEnd     = () => { if (!this.destroyed) this.playNext(); };
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+
+    // Re-attach to music already playing from the previous floor
+    const sounds = (scene.sound as any).sounds as Phaser.Sound.BaseSound[];
+    for (const s of sounds) {
+      if (MUSIC_POOL.includes(s.key) && (s as any).isPlaying) {
+        this.music     = s;
+        this.currentKey = s.key;
+        // Replace old complete-listener with ours
+        s.removeAllListeners('complete');
+        s.on('complete', this.onMusicEnd);
+        break;
+      }
+    }
+
     this.loadAudio();
   }
 
-  // ── Music ──────────────────────────────────────────────────────────────────
-
-  setBattleMode(battle: boolean): void {
-    if (this.destroyed) return;
-    if (!this.ready) { this.pendingBattle = battle; return; }
-    if (this.battleMode === battle && this.music) return;
-    this.battleMode = battle;
-    const key = battle ? 'music_battle' : 'music_regular';
-    if (this.currentMusicKey === key) return;
-    this.music?.stop();
-    this.currentMusicKey = key;
-    this.music = this.scene.sound.add(key, { loop: true, volume: MUSIC_VOL });
-    this.music.play();
-  }
+  // ── kept for GameScene compatibility, now a no-op ─────────────────────────
+  setBattleMode(_battle: boolean): void {}
 
   // ── SFX ───────────────────────────────────────────────────────────────────
 
   play(group: string): void {
-    if (!this.ready || this.destroyed) return;
+    if (!this.sfxReady || this.destroyed) return;
     const keys = SFX_GROUPS[group];
     if (!keys?.length) return;
     const key = keys[Math.floor(Math.random() * keys.length)];
-    try {
-      this.scene.sound.play(key, { volume: SFX_VOL });
-    } catch {}
+    try { this.scene.sound.play(key, { volume: SFX_VOL }); } catch {}
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-  destroy(): void {
+  /** Floor transition — keep music playing, just unsubscribe from the loader. */
+  detach(): void {
     this.destroyed = true;
-    // Remove loader listener BEFORE scene tears down to prevent the
-    // "Cannot read properties of undefined (reading 'events')" crash
     try { this.scene.load.off('complete', this.onLoadComplete); } catch {}
+  }
+
+  /** Game over — stop everything. */
+  destroy(): void {
+    this.detach();
+    this.music?.removeAllListeners('complete');
     this.music?.stop();
-    this.music = null;
-    this.currentMusicKey = '';
-    this.ready = false;
+    this.music    = null;
+    this.currentKey = '';
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
 
+  private playNext(): void {
+    if (this.destroyed) return;
+    // Pick a random track different from the current one
+    const pool = MUSIC_POOL.length > 1
+      ? MUSIC_POOL.filter(k => k !== this.currentKey)
+      : MUSIC_POOL;
+    const key = pool[Math.floor(Math.random() * pool.length)];
+    this.startTrack(key);
+  }
+
+  private startTrack(key: string): void {
+    this.music?.removeAllListeners('complete');
+    this.music?.stop();
+    try {
+      const s = this.scene.sound.add(key, { loop: false, volume: MUSIC_VOL });
+      s.on('complete', this.onMusicEnd);
+      s.play();
+      this.music     = s;
+      this.currentKey = key;
+    } catch {}
+  }
+
   private loadAudio(): void {
-    const cache = this.scene.cache.audio;
     const loader = this.scene.load;
     let queued = 0;
-
     for (const [key, path] of Object.entries(AUDIO_FILES)) {
-      if (!cache.has(key)) {
+      if (!this.scene.cache.audio.has(key)) {
         loader.audio(key, path);
         queued++;
       }
     }
-
-    if (queued === 0) {
-      this.onReady();
-      return;
-    }
-
+    if (queued === 0) { this.onReady(); return; }
     loader.once('complete', this.onLoadComplete);
     loader.start();
   }
 
   private onReady(): void {
     if (this.destroyed) return;
-    this.ready = true;
-    const battle = this.pendingBattle ?? false;
-    this.pendingBattle = null;
-    this.setBattleMode(battle);
+    this.sfxReady = true;
+    // Start music only if nothing is already playing
+    if (!this.music || !(this.music as any).isPlaying) {
+      this.playNext();
+    }
   }
 }

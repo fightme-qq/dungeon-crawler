@@ -867,7 +867,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('coinValue', this.coinValue);
     setStats(this.registry, this.stats);
     saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats, this.registry.get('purchasedItems') ?? []);
-    this.audio.destroy();
+    this.audio.detach();
     this.shopSystem?.destroy();
     this.shopSystem = null;
     this.scene.stop('UIScene');
