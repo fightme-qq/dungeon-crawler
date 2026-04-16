@@ -284,6 +284,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const dur    = 200;
 
     const ticker = (now: number) => {
+      if (!this.scene?.events) { gfx.destroy(); return; }
       const pct = Math.min((now - t0) / dur, 1);
       const r   = startR + (endR - startR) * pct;
       const a   = (1 - pct) * 0.6;
