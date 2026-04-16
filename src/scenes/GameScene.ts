@@ -876,6 +876,9 @@ export class GameScene extends Phaser.Scene {
 
   private showGameOver() {
     (window as any).ysdk?.features?.GameplayAPI?.stop();
+    this.audio.destroy();
+    this.shopSystem?.destroy();
+    this.shopSystem = null;
     this.enemies.getChildren().forEach(e => (e as BaseEnemy).setActive(false));
 
     this.registry.remove('floor');
