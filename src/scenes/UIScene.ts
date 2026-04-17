@@ -110,77 +110,116 @@ export class UIScene extends Phaser.Scene {
       this.scale.gameSize.width / BASE_UI_W,
       this.scale.gameSize.height / BASE_UI_H,
     );
-    this.cameras.main.setZoom(this.uiScale);
-    this.viewportW = this.scale.gameSize.width / this.uiScale;
-    this.viewportH = this.scale.gameSize.height / this.uiScale;
-    this.cameras.main.setScroll(
-      -(this.scale.gameSize.width - this.viewportW) / 2,
-      -(this.scale.gameSize.height - this.viewportH) / 2,
-    );
+    this.viewportW = this.scale.gameSize.width;
+    this.viewportH = this.scale.gameSize.height;
+  }
+
+  private getMinimapWidth() {
+    return MM_W * this.uiScale;
+  }
+
+  private getMinimapHeight() {
+    return MM_H * this.uiScale;
   }
 
   private getMinimapX() {
-    return this.viewportW - PAD - MM_W;
+    return this.viewportW - PAD * this.uiScale - this.getMinimapWidth();
   }
 
   private getMinimapY() {
-    return this.viewportH - PAD - MM_H;
+    return this.viewportH - PAD * this.uiScale - this.getMinimapHeight();
   }
 
   private layoutItemIconsRow() {
     if (this.itemIconsRow.length === 0) return;
-    const SZ = 24;
-    const GAP = 4;
+    const SZ = 24 * this.uiScale;
+    const GAP = 4 * this.uiScale;
     const totalW = this.itemIconsRow.length * (SZ + GAP) - GAP;
     const x0 = this.viewportW / 2 - totalW / 2;
-    const y = this.viewportH - SZ / 2 - 2;
+    const y = this.viewportH - SZ / 2 - 2 * this.uiScale;
     this.itemIconsRow.forEach((ic, i) => {
+      ic.setDisplaySize(SZ, SZ);
       ic.setPosition(x0 + i * (SZ + GAP) + SZ / 2, y);
     });
   }
 
   private relayoutHud() {
     this.syncViewportSize();
+    const s = this.uiScale;
+    const pad = PAD * s;
+    const barH = BAR_H * s;
+    const hpScale = HP_SCALE * s;
+    const abilitySize = AB_SZ * s;
 
-    this.abY = this.viewportH - PAD - AB_SZ / 2;
-    this.abQx = PAD + AB_SZ / 2;
-    this.abEx = PAD + AB_SZ + 8 + AB_SZ / 2;
+    this.abY = this.viewportH - pad - abilitySize / 2;
+    this.abQx = pad + abilitySize / 2;
+    this.abEx = pad + abilitySize + 8 * s + abilitySize / 2;
 
-    this.hpBarEmpty.setPosition(PAD, PAD);
-    this.hpBarFill.setPosition(PAD, PAD);
-    this.hpBarDamage.setPosition(PAD, PAD);
-    this.hpBarHeal.setPosition(PAD, PAD);
-    this.hpText.setPosition(PAD + 8 * HP_SCALE, PAD + BAR_H / 2);
+    this.hpBarEmpty.setScale(hpScale).setPosition(pad, pad);
+    this.hpBarFill.setScale(hpScale).setPosition(pad, pad);
+    this.hpBarDamage.setScale(hpScale).setPosition(pad, pad);
+    this.hpBarHeal.setScale(hpScale).setPosition(pad, pad);
+    this.hpText
+      .setStyle({ fontSize: `${Math.max(14, Math.round(14 * s))}px`, strokeThickness: Math.max(4, Math.round(4 * s)) })
+      .setPosition(pad + 8 * hpScale, pad + barH / 2);
 
-    this.coinY = PAD + BAR_H + 6;
+    this.coinY = pad + barH + 6 * s;
     this.onCoinsChanged(this.registry.get('coinValue') ?? 0);
 
-    this.qIcon.setPosition(this.abQx, this.abY);
-    this.eIcon.setPosition(this.abEx, this.abY);
-    this.qLabel.setPosition(this.abQx + AB_SZ / 2 - 2, this.abY + AB_SZ / 2 - 2);
-    this.eLabel.setPosition(this.abEx + AB_SZ / 2 - 2, this.abY + AB_SZ / 2 - 2);
+    this.qIcon.setDisplaySize(abilitySize, abilitySize).setPosition(this.abQx, this.abY);
+    this.eIcon.setDisplaySize(abilitySize, abilitySize).setPosition(this.abEx, this.abY);
+    this.qLabel
+      .setStyle({ fontSize: `${Math.max(13, Math.round(13 * s))}px`, strokeThickness: Math.max(3, Math.round(3 * s)) })
+      .setPosition(this.abQx + abilitySize / 2 - 2 * s, this.abY + abilitySize / 2 - 2 * s);
+    this.eLabel
+      .setStyle({ fontSize: `${Math.max(13, Math.round(13 * s))}px`, strokeThickness: Math.max(3, Math.round(3 * s)) })
+      .setPosition(this.abEx + abilitySize / 2 - 2 * s, this.abY + abilitySize / 2 - 2 * s);
 
-    this.floorText.setPosition(this.viewportW - PAD, PAD + BAR_H / 2);
+    this.floorText
+      .setStyle({
+        fontSize: `${Math.max(13, Math.round(13 * s))}px`,
+        strokeThickness: Math.max(3, Math.round(3 * s)),
+        padding: { x: Math.max(6, Math.round(6 * s)), y: Math.max(3, Math.round(3 * s)) },
+      })
+      .setPosition(this.viewportW - pad, pad + barH / 2);
 
     const mmX = this.getMinimapX();
     const mmY = this.getMinimapY();
-    this.minimapBorder.setPosition(mmX + MM_W / 2, mmY + MM_H / 2);
-    this.minimapBg.setPosition(mmX + MM_W / 2, mmY + MM_H / 2);
+    const mmW = this.getMinimapWidth();
+    const mmH = this.getMinimapHeight();
+    this.minimapBorder
+      .setSize(mmW + 2 * s, mmH + 2 * s)
+      .setDisplaySize(mmW + 2 * s, mmH + 2 * s)
+      .setPosition(mmX + mmW / 2, mmY + mmH / 2);
+    this.minimapBg
+      .setSize(mmW, mmH)
+      .setDisplaySize(mmW, mmH)
+      .setPosition(mmX + mmW / 2, mmY + mmH / 2);
 
-    const iconSz = 20;
-    const rowH = iconSz + 4;
-    const iconX = mmX - PAD - iconSz / 2;
-    const textX = iconX - iconSz / 2 - 4;
-    const armY = mmY + MM_H - iconSz / 2;
+    const iconSz = 20 * s;
+    const rowH = iconSz + 4 * s;
+    const iconX = mmX - pad - iconSz / 2;
+    const textX = iconX - iconSz / 2 - 4 * s;
+    const armY = mmY + mmH - iconSz / 2;
     const arwY = armY - rowH;
     const atkY = arwY - rowH;
 
-    this.armorIcon.setPosition(iconX, armY);
-    this.armorText.setPosition(textX, armY);
-    this.arrowIcon.setPosition(iconX, arwY);
-    this.arrowText.setPosition(textX, arwY);
-    this.statIcon.setPosition(iconX, atkY);
-    this.statText.setPosition(textX, atkY);
+    this.armorIcon.setDisplaySize(iconSz, iconSz).setPosition(iconX, armY);
+    this.armorText
+      .setStyle({ fontSize: `${Math.max(13, Math.round(13 * s))}px`, strokeThickness: Math.max(3, Math.round(3 * s)) })
+      .setPosition(textX, armY);
+    this.arrowIcon.setDisplaySize(iconSz, iconSz).setPosition(iconX, arwY);
+    this.arrowText
+      .setStyle({ fontSize: `${Math.max(13, Math.round(13 * s))}px`, strokeThickness: Math.max(3, Math.round(3 * s)) })
+      .setPosition(textX, arwY);
+    this.statIcon.setDisplaySize(iconSz, iconSz).setPosition(iconX, atkY);
+    this.statText
+      .setStyle({ fontSize: `${Math.max(13, Math.round(13 * s))}px`, strokeThickness: Math.max(3, Math.round(3 * s)) })
+      .setPosition(textX, atkY);
+
+    if (this.mapW > 0 && this.mapH > 0) {
+      this.mmScale = Math.min(mmW / this.mapW, mmH / this.mapH);
+    }
 
     this.layoutItemIconsRow();
   }
@@ -384,18 +423,25 @@ export class UIScene extends Phaser.Scene {
       Math.floor((total % bc.redValue) / bc.goldValue),
       total % bc.goldValue,
     ];
-    const ICON_SZ  = 18;
-    const GAP      = 4;  // px between icon+text groups
-    const TEXT_GAP = 2;  // px between icon and number
-    let curX = PAD;
+    const s = this.uiScale;
+    const pad = PAD * s;
+    const ICON_SZ  = 18 * s;
+    const GAP      = 4 * s;  // px between icon+text groups
+    const TEXT_GAP = 2 * s;  // px between icon and number
+    let curX = pad;
     const midY = this.coinY + ICON_SZ / 2;
     for (let i = 0; i < 3; i++) {
       const visible = counts[i] > 0;
       this.coinIcons[i].setVisible(visible);
       this.coinTexts[i].setVisible(visible);
       if (visible) {
-        this.coinIcons[i].setPosition(curX + ICON_SZ / 2, midY);
-        this.coinTexts[i].setText(String(counts[i])).setPosition(curX + ICON_SZ + TEXT_GAP, midY);
+        this.coinIcons[i]
+          .setDisplaySize(ICON_SZ, ICON_SZ)
+          .setPosition(curX + ICON_SZ / 2, midY);
+        this.coinTexts[i]
+          .setStyle({ fontSize: `${Math.max(11, Math.round(11 * s))}px`, strokeThickness: Math.max(2, Math.round(2 * s)) })
+          .setText(String(counts[i]))
+          .setPosition(curX + ICON_SZ + TEXT_GAP, midY);
         curX += ICON_SZ + TEXT_GAP + (this.coinTexts[i].width) + GAP;
       }
     }
@@ -418,7 +464,7 @@ export class UIScene extends Phaser.Scene {
     this.stairTY = data.stairTileY;
     this.startTX = data.startTileX;
     this.startTY = data.startTileY;
-    this.mmScale = Math.min(MM_W / this.mapW, MM_H / this.mapH);
+    this.mmScale = Math.min(this.getMinimapWidth() / this.mapW, this.getMinimapHeight() / this.mapH);
 
     // Reset fog — new floor
     this.revealed = Array.from({ length: this.mapH }, () =>
@@ -550,8 +596,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onItemBought(data: { frame: number; name: string }) {
-    const SZ  = 24;
-    const y = this.viewportH - SZ / 2 - 2;
+    const SZ  = 24 * this.uiScale;
+    const y = this.viewportH - SZ / 2 - 2 * this.uiScale;
 
     const icon = this.add.image(0, y, 'icons', data.frame)
       .setDisplaySize(SZ, SZ)
@@ -567,14 +613,15 @@ export class UIScene extends Phaser.Scene {
   private redrawAbilityCooldowns() {
     this.abGfx.clear();
     const entries: [number, number][] = [[this.abQx, this.abCd.q], [this.abEx, this.abCd.e]];
+    const abilitySize = AB_SZ * this.uiScale;
     for (const [cx, pct] of entries) {
       if (pct <= 0) continue;
       // Square overlay: fills from top down proportional to cooldown pct
-      const left = cx - AB_SZ / 2;
-      const top  = this.abY - AB_SZ / 2;
-      const h    = AB_SZ * pct;
+      const left = cx - abilitySize / 2;
+      const top  = this.abY - abilitySize / 2;
+      const h    = abilitySize * pct;
       this.abGfx.fillStyle(0x000000, 0.72);
-      this.abGfx.fillRect(left, top, AB_SZ, h);
+      this.abGfx.fillRect(left, top, abilitySize, h);
     }
   }
 

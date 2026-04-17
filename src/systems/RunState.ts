@@ -9,6 +9,10 @@ export interface PlayerStats {
   maxHp:          number;
 }
 
+export interface PlayerPerks {
+  divineVolley: boolean;
+}
+
 // ── localStorage save (Rule 1.9: page refresh preserves run) ─────────────────
 
 const SAVE_KEY = 'ironProtocol_save_v1';
@@ -20,15 +24,16 @@ interface SaveData {
   hp:             number;
   coins:          number;
   stats:          PlayerStats;
+  perks:          PlayerPerks;
   purchasedItems: PurchasedItem[];
 }
 
 export function saveRun(
   floor: number, hp: number, coins: number,
-  stats: PlayerStats, purchasedItems: PurchasedItem[],
+  stats: PlayerStats, perks: PlayerPerks, purchasedItems: PurchasedItem[],
 ): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ floor, hp, coins, stats, purchasedItems }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ floor, hp, coins, stats, perks, purchasedItems }));
   } catch {}
 }
 
@@ -38,6 +43,7 @@ export function loadRun(): SaveData | null {
     if (!raw) return null;
     const data = JSON.parse(raw) as SaveData;
     if (!data.purchasedItems) data.purchasedItems = []; // back-compat
+    if (!data.perks) data.perks = basePerks();
     return data;
   } catch {
     return null;
@@ -51,6 +57,7 @@ export function clearRun(): void {
 // ── Phaser registry ───────────────────────────────────────────────────────────
 
 const KEY = 'playerStats';
+const PERKS_KEY = 'playerPerks';
 
 export function baseStats(): PlayerStats {
   return {
@@ -63,6 +70,12 @@ export function baseStats(): PlayerStats {
   };
 }
 
+export function basePerks(): PlayerPerks {
+  return {
+    divineVolley: false,
+  };
+}
+
 export function getStats(registry: Phaser.Data.DataManager): PlayerStats {
   return (registry.get(KEY) as PlayerStats | undefined) ?? baseStats();
 }
@@ -71,6 +84,18 @@ export function setStats(registry: Phaser.Data.DataManager, stats: PlayerStats):
   registry.set(KEY, { ...stats });
 }
 
+export function getPerks(registry: Phaser.Data.DataManager): PlayerPerks {
+  return (registry.get(PERKS_KEY) as PlayerPerks | undefined) ?? basePerks();
+}
+
+export function setPerks(registry: Phaser.Data.DataManager, perks: PlayerPerks): void {
+  registry.set(PERKS_KEY, { ...perks });
+}
+
 export function clearStats(registry: Phaser.Data.DataManager): void {
   registry.remove(KEY);
+}
+
+export function clearPerks(registry: Phaser.Data.DataManager): void {
+  registry.remove(PERKS_KEY);
 }

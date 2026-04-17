@@ -141,6 +141,19 @@
     "itemCountMin": 2,
     "itemCountMax": 4,
     "rarityWeights": [40, 25, 20, 12, 3],
+    "divineArrowItem": {
+      "price": 0,
+      "productId": "divine_volley",
+      "portalPrice": 10,
+      "rarity": 5,
+      "frame": 1099,
+      "arrowDamageBonus": 150,
+      "extraArrows": 2,
+      "damageMultiplier": 1.15,
+      "angleOffsetDeg": 12,
+      "spawnChanceFloor1": 1,
+      "spawnChanceOtherFloors": 0.25
+    },
     "items": {
       "attack": {
         "name": "Sword Edge",

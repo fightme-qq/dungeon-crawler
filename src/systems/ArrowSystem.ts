@@ -5,7 +5,7 @@ import { Chest } from '../entities/Chest';
 import { TILE_S } from '../utils/constants';
 import { calcDamage } from '../utils/combat';
 import { TILE_WALL } from './DungeonGenerator';
-import { PlayerStats } from './RunState';
+import { PlayerPerks, PlayerStats } from './RunState';
 
 const ARROW_SPEED  = 480; // px/s
 const MAX_RANGE    = TILE_S * 10;
@@ -21,6 +21,7 @@ interface Arrow {
   ax:       number;
   ay:       number;
   traveled: number;
+  damageScale: number;
 }
 
 export class ArrowSystem {
@@ -32,6 +33,7 @@ export class ArrowSystem {
   private cooldown  = 0;
   private onDamage: (x: number, y: number, dmg: number, isCrit: boolean) => void;
   private getStats: () => PlayerStats;
+  private getPerks: () => PlayerPerks;
 
   constructor(
     scene:    Phaser.Scene,
@@ -39,12 +41,14 @@ export class ArrowSystem {
     tiles:    number[][],
     onDamage: (x: number, y: number, dmg: number, isCrit: boolean) => void,
     getStats: () => PlayerStats,
+    getPerks: () => PlayerPerks,
   ) {
     this.scene    = scene;
     this.enemies  = enemies;
     this.tiles    = tiles;
     this.onDamage = onDamage;
     this.getStats = getStats;
+    this.getPerks = getPerks;
   }
 
   setChests(chests: Chest[]): void { this.chests = chests; }
@@ -54,7 +58,28 @@ export class ArrowSystem {
   }
 
   shoot(x: number, y: number, angle: number): boolean {
+    this.spawnArrow(x, y, angle, 1, 0xffffff, 1);
 
+    if (this.getPerks().divineVolley) {
+      const divine = balance.shop.divineArrowItem;
+      const angleOffset = Phaser.Math.DegToRad(divine.angleOffsetDeg);
+      for (let i = 0; i < divine.extraArrows; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const spreadStep = Math.floor(i / 2) + 1;
+        this.spawnArrow(
+          x,
+          y,
+          angle + side * angleOffset * spreadStep,
+          divine.damageMultiplier,
+          0x8fe9ff,
+          0.95,
+        );
+      }
+    }
+    return true;
+  }
+
+  private spawnArrow(x: number, y: number, angle: number, damageScale: number, tint: number, alpha: number): void {
     const vx = Math.cos(angle) * ARROW_SPEED;
     const vy = Math.sin(angle) * ARROW_SPEED;
 
@@ -66,10 +91,11 @@ export class ArrowSystem {
     const sprite = this.scene.add.image(x, y, 'arrow')
       .setScale(ARROW_SCALE)
       .setRotation(angle)
+      .setTint(tint)
+      .setAlpha(alpha)
       .setDepth(y + 1);
 
-    this.arrows.push({ sprite, vx, vy, ax, ay, traveled: 0 });
-    return true;
+    this.arrows.push({ sprite, vx, vy, ax, ay, traveled: 0, damageScale });
   }
 
   update(delta: number): void {
@@ -112,7 +138,7 @@ export class ArrowSystem {
           const mult   = isCrit ? s.critMultiplier : 1;
           const v      = balance.player.damageVariance;
           const vary   = 1 - v + Math.random() * v * 2;
-          const dmg    = Math.round(calcDamage(s.arrowDamage * mult * vary, enemy.getArmor()));
+          const dmg    = Math.round(calcDamage(s.arrowDamage * a.damageScale * mult * vary, enemy.getArmor()));
           const kb  = Phaser.Math.Angle.Between(a.sprite.x, a.sprite.y, enemy.x, enemy.y);
           const ekb = enemy.getKnockbackForce() * 0.9;
           enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
@@ -134,7 +160,7 @@ export class ArrowSystem {
             const mult   = isCrit ? s.critMultiplier : 1;
             const v      = balance.player.damageVariance;
             const vary   = 1 - v + Math.random() * v * 2;
-            const dmg    = Math.round(calcDamage(s.arrowDamage * mult * vary, 0));
+            const dmg    = Math.round(calcDamage(s.arrowDamage * a.damageScale * mult * vary, 0));
             chest.takeDamage(dmg);
             this.onDamage(chest.x, chest.y, dmg, isCrit);
             hitChest = true;

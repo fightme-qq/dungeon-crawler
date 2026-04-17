@@ -30,13 +30,17 @@ const STRINGS = {
     clickRestart:   'Click to restart',
     floor:          (n: number) => `Floor ${n}`,
     pressEBuy:      'Press E to buy',
+    pressEBuyPremium: (n: number) => `Press E to buy for ${n} YAN`,
     needSilver:     (n: number) => `Need ${n} silver`,
+    paymentsUnavailable: 'Payments unavailable',
+    portalPrice:    (n: number) => `${n} YAN`,
 
-    rarities: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'],
+    rarities: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Divine'],
 
     healItemName:   'Healing Meal',
     healItemEffect: 'Restores full HP',
     healItemRarity: 'Special',
+    divineArrowItemName: 'Heavenstring Relic',
 
     statBonus: {
       attack:         (v: number) => `+${v} sword damage`,
@@ -45,6 +49,10 @@ const STRINGS = {
       critMultiplier: (v: number) => `+${v}% crit damage`,
       critChance:     (v: number) => `+${v}% crit chance`,
       maxHp:          (v: number) => `+${v} max hp`,
+    },
+
+    specialEffects: {
+      divineVolley: (extraArrows: number, pct: number) => `+${extraArrows} side arrows for ${pct}% damage`,
     },
 
     itemNames: {
@@ -64,11 +72,12 @@ const STRINGS = {
     pressEBuy:      'E — купить',
     needSilver:     (n: number) => `Нужно ${n} серебра`,
 
-    rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный'],
+    rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный', 'Божественный'],
 
     healItemName:   'Целебная еда',
     healItemEffect: 'Восстанавливает все HP',
     healItemRarity: 'Особый',
+    divineArrowItemName: 'Реликвия небострела',
 
     statBonus: {
       attack:         (v: number) => `+${v} урон мечом`,
@@ -77,6 +86,10 @@ const STRINGS = {
       critMultiplier: (v: number) => `+${v}% крит урон`,
       critChance:     (v: number) => `+${v}% шанс крита`,
       maxHp:          (v: number) => `+${v} макс HP`,
+    },
+
+    specialEffects: {
+      divineVolley: (extraArrows: number, pct: number) => `+${extraArrows} боковые стрелы по ${pct}% урона`,
     },
 
     itemNames: {

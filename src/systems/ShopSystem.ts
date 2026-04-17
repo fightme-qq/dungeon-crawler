@@ -2,11 +2,18 @@ import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { Room } from './DungeonGenerator';
 import { TILE_S } from '../utils/constants';
-import { t } from '../lang';
+import { LANG, t } from '../lang';
 
 export type StatKey = 'attack' | 'arrowDamage' | 'armor' | 'critMultiplier' | 'critChance' | 'maxHp';
-const RARITY_COLORS_HEX = ['#aaaaaa', '#44cc44', '#4488ff', '#cc44ff', '#ffaa00'];
-const RARITY_COLORS_INT = [0xaaaaaa,  0x44cc44,  0x4488ff,  0xcc44ff,  0xffaa00];
+const RARITY_COLORS_HEX = ['#aaaaaa', '#44cc44', '#4488ff', '#cc44ff', '#ffaa00', '#ff5a5a'];
+const RARITY_COLORS_INT = [0xaaaaaa,  0x44cc44,  0x4488ff,  0xcc44ff,  0xffaa00,  0xff5a5a];
+
+export interface SpecialEffect {
+  type: 'divineVolley';
+  extraArrows: number;
+  damageMultiplier: number;
+  angleOffsetDeg: number;
+}
 
 export interface StatBonus {
   statKey: StatKey;
@@ -20,6 +27,9 @@ export interface ShopItemInstance {
   price:      number;
   name:       string;
   frame:      number;
+  purchaseProductId?: string;
+  premiumPrice?: number;
+  specialEffect?: SpecialEffect;
   healToFull?: boolean; // special stair item — restores all HP
 }
 
@@ -33,6 +43,7 @@ interface WorldItem {
 
 const INTERACT_R = balance.shop.interactRadius;
 const W = 135, H = 70;
+const ICON_SRC_SIZE = 32;
 
 // ── Icon & name pools per stat ────────────────────────────────────────────────
 
@@ -64,7 +75,7 @@ export class ShopSystem {
     this.scene = scene;
   }
 
-  spawnInRoom(room: Room): void {
+  spawnInRoom(room: Room, guaranteedItem?: ShopItemInstance): void {
     const s = balance.shop;
     const count = Phaser.Math.Between(s.itemCountMin, s.itemCountMax);
 
@@ -84,7 +95,7 @@ export class ShopSystem {
                + Phaser.Math.Between(-TILE_S / 2, TILE_S / 2);
 
       const key  = shuffledKeys[i % shuffledKeys.length];
-      const inst = this.rollItem(key);
+      const inst = guaranteedItem && i === 0 ? guaranteedItem : this.rollItem(key);
       this.createWorldItem(wx, wy, inst);
     }
   }
@@ -117,18 +128,19 @@ export class ShopSystem {
 
       const dist    = Phaser.Math.Distance.Between(px, py, item.sprite.x, item.sprite.y);
       const inRange = dist < INTERACT_R;
-      const canAfford = coinValue >= item.inst.price;
+      const isPremium = !!item.inst.purchaseProductId;
+      const paymentsAvailable = (window as any).__paymentsAvailable !== false;
+      const canAfford = isPremium ? paymentsAvailable : coinValue >= item.inst.price;
 
       item.prompt.setVisible(inRange);
-      item.prompt.setText(canAfford ? t().pressEBuy : t().needSilver(item.inst.price));
+      item.prompt.setText(this.getPromptText(item.inst, canAfford));
       item.prompt.setColor(canAfford ? '#ffffff' : '#ff6666');
 
       if (inRange && eJustDown && canAfford && !purchased) {
         purchased = item.inst;
-        item.active = false;
-        item.sprite.destroy();
-        item.card.destroy();
-        item.prompt.destroy();
+        if (!isPremium) {
+          this.removeItem(item.inst);
+        }
       }
     }
 
@@ -144,6 +156,16 @@ export class ShopSystem {
       item.prompt.destroy();
     }
     this.items = [];
+  }
+
+  removeItem(inst: ShopItemInstance): void {
+    const item = this.items.find(i => i.inst === inst && i.active);
+    if (!item) return;
+    item.active = false;
+    item.sprite.destroy();
+    item.card.destroy();
+    item.prompt.destroy();
+    this.items = this.items.filter(i => i.active);
   }
 
   // ── Private ───────────────────────────────────────────────────────
@@ -195,6 +217,9 @@ export class ShopSystem {
     const sprite = scene.add.image(wx, wy, 'icons', inst.frame)
       .setDisplaySize(iconSz, iconSz)
       .setDepth(400);
+    if (inst.rarity === 5) {
+      sprite.setCrop(0, 0, ICON_SRC_SIZE, ICON_SRC_SIZE - 1);
+    }
 
     scene.tweens.add({
       targets:  sprite,
@@ -240,7 +265,10 @@ export class ShopSystem {
 
     const bonusLines = inst.healToFull
       ? [t().healItemEffect]
-      : inst.bonuses.map(b => this.formatBonus(b));
+      : [
+          ...inst.bonuses.map(b => this.formatBonus(b)),
+          ...(inst.specialEffect ? [this.formatSpecialEffect(inst.specialEffect)] : []),
+        ];
 
     const bonusObjs: Phaser.GameObjects.Text[] = bonusLines.map(line =>
       s.add.text(0, 0, line, {
@@ -261,7 +289,14 @@ export class ShopSystem {
     const priceTxts = groups.map(g => s.add.text(0, 0, String(g.count), {
       fontSize: '11px', fontStyle: 'bold', color: '#dddddd', resolution: 4,
     }));
-    const priceRowW = groups.length * (14 + 2) + priceTxts.reduce((s, t) => s + t.width + 4, 6);
+    const premiumPriceText = inst.premiumPrice != null
+      ? s.add.text(0, 0, this.formatPremiumPrice(inst.premiumPrice), {
+          fontSize: '11px', fontStyle: 'bold', color: '#ffaaaa', resolution: 4,
+        }).setOrigin(0, 0)
+      : null;
+    const priceRowW = premiumPriceText
+      ? premiumPriceText.width + 12
+      : groups.length * (14 + 2) + priceTxts.reduce((sum, txt) => sum + txt.width + 4, 6);
 
     // ── 3. Calculate card width from widest element ────────────────────────────
     const allWidths = [
@@ -271,7 +306,7 @@ export class ShopSystem {
       priceRowW,
     ];
     const cardW = Math.max(MIN_W, Math.max(...allWidths) + PAD_L + PAD_R);
-    const cardH = H + (inst.bonuses.length - 1) * LINE;
+    const cardH = H + (bonusLines.length - 1) * LINE;
 
     // ── 4. Position everything now that cardW is known ─────────────────────────
     const lx = -cardW / 2; // left card edge
@@ -280,9 +315,18 @@ export class ShopSystem {
     const bg     = s.add.rectangle(0, 0, cardW, cardH, 0x111111, 0.75).setOrigin(0.5, 1);
     const border = s.add.rectangle(0, 0, cardW, cardH).setOrigin(0.5, 1)
       .setStrokeStyle(1.5, col).setFillStyle(0, 0);
+    const divineOuterGlow = inst.rarity === 5
+      ? s.add.rectangle(0, 0, cardW + 18, cardH + 18, 0x5a1010, 0.16).setOrigin(0.5, 1)
+      : null;
+    const divineMidGlow = inst.rarity === 5
+      ? s.add.rectangle(0, 0, cardW + 10, cardH + 10, 0xa81818, 0.22).setOrigin(0.5, 1)
+      : null;
 
     const iconImg = s.add.image(lx + 13, -cardH + 30, 'icons', inst.frame)
       .setDisplaySize(20, 20).setOrigin(0.5, 0.5);
+    if (inst.rarity === 5) {
+      iconImg.setCrop(0, 0, ICON_SRC_SIZE, ICON_SRC_SIZE - 1);
+    }
 
     nameText.setPosition(tx, -cardH + 5);
     rarText .setPosition(tx, -cardH + 20);
@@ -290,18 +334,53 @@ export class ShopSystem {
 
     // Price row
     const priceChildren: Phaser.GameObjects.GameObject[] = [];
-    let cx = lx + 6;
-    groups.forEach((g, i) => {
-      const icon = s.add.image(cx, -9, 'icons', g.frame).setDisplaySize(14, 14).setOrigin(0, 0.5);
-      priceTxts[i].setPosition(cx + 16, -16);
-      priceChildren.push(icon, priceTxts[i]);
-      cx += 16 + priceTxts[i].width + 4;
-    });
+    if (premiumPriceText) {
+      premiumPriceText.setPosition(lx + 8, -16);
+      priceChildren.push(premiumPriceText);
+    } else {
+      let cx = lx + 6;
+      groups.forEach((g, i) => {
+        const icon = s.add.image(cx, -9, 'icons', g.frame).setDisplaySize(14, 14).setOrigin(0, 0.5);
+        priceTxts[i].setPosition(cx + 16, -16);
+        priceChildren.push(icon, priceTxts[i]);
+        cx += 16 + priceTxts[i].width + 4;
+      });
+    }
 
-    return s.add.container(0, 0, [bg, border, iconImg, nameText, rarText, ...bonusObjs, ...priceChildren]);
+    const children: Phaser.GameObjects.GameObject[] = [bg, border];
+    if (divineOuterGlow) children.unshift(divineOuterGlow);
+    if (divineMidGlow) children.unshift(divineMidGlow);
+    children.push(iconImg, nameText, rarText, ...bonusObjs, ...priceChildren);
+
+    return s.add.container(0, 0, children);
   }
 
   private formatBonus(b: StatBonus): string {
     return t().statBonus[b.statKey](b.value);
+  }
+
+  private formatSpecialEffect(effect: SpecialEffect): string {
+    switch (effect.type) {
+      case 'divineVolley':
+        return t().specialEffects.divineVolley(
+          effect.extraArrows,
+          Math.round(effect.damageMultiplier * 100),
+        );
+    }
+  }
+
+  private getPromptText(inst: ShopItemInstance, canAfford: boolean): string {
+    if (inst.purchaseProductId) {
+      if (!canAfford) return LANG === 'ru' ? 'Покупки недоступны' : 'Payments unavailable';
+      const price = inst.premiumPrice ?? 0;
+      return LANG === 'ru'
+        ? `E — купить за ${price} ₽`
+        : `Press E to buy for ${price} YAN`;
+    }
+    return canAfford ? t().pressEBuy : t().needSilver(inst.price);
+  }
+
+  private formatPremiumPrice(price: number): string {
+    return LANG === 'ru' ? `${price} ₽` : `${price} YAN`;
   }
 }

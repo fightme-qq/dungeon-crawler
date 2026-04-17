@@ -12,8 +12,8 @@ import { FloatTextSystem } from '../systems/FloatTextSystem';
 import { ArrowSystem } from '../systems/ArrowSystem';
 import { EnemySpawner } from '../systems/EnemySpawner';
 import { Chest } from '../entities/Chest';
-import { getStats, setStats, clearStats, saveRun, loadRun, clearRun, PlayerStats, PurchasedItem } from '../systems/RunState';
-import { ShopSystem, ShopItemInstance } from '../systems/ShopSystem';
+import { getStats, getPerks, setStats, setPerks, clearStats, clearPerks, saveRun, loadRun, clearRun, PlayerStats, PlayerPerks, PurchasedItem } from '../systems/RunState';
+import { ShopSystem, ShopItemInstance, SpecialEffect } from '../systems/ShopSystem';
 import { AudioSystem } from '../systems/AudioSystem';
 import { t } from '../lang';
 
@@ -84,6 +84,8 @@ export class GameScene extends Phaser.Scene {
   private audio!: AudioSystem;
   private prevEnemyCount = 0;
   private stats!: PlayerStats;
+  private perks!: PlayerPerks;
+  private premiumPurchasePending = false;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -110,6 +112,7 @@ export class GameScene extends Phaser.Scene {
         this.registry.set('coinValue',      save.coins);
         this.registry.set('purchasedItems', save.purchasedItems ?? []);
         setStats(this.registry, save.stats);
+        setPerks(this.registry, save.perks);
       }
     }
 
@@ -119,6 +122,11 @@ export class GameScene extends Phaser.Scene {
     this.transitioning = false;
     this.stairChargeMs = 0;
     this.stats        = getStats(this.registry);
+    this.perks        = getPerks(this.registry);
+    if (this.hasOwnedPurchase(balance.shop.divineArrowItem.productId)) {
+      this.perks.divineVolley = true;
+      setPerks(this.registry, this.perks);
+    }
 
     // Canvas textures (trap, torch) are created in BootScene but may not survive
     // scene.restart() in some Phaser builds — recreate them if missing.
@@ -517,12 +525,40 @@ export class GameScene extends Phaser.Scene {
     this.floatText  = new FloatTextSystem(this);
     this.arrowSystem = new ArrowSystem(this, this.enemies, tiles,
       (x, y, dmg, isCrit) => this.floatText.showDamage(x, y, dmg, isCrit),
-      () => this.stats);
+      () => this.stats,
+      () => this.perks);
     this.arrowSystem.setChests(this.chests);
 
     this.shopSystem = new ShopSystem(this);
     const startRoom = dungeon.rooms.find(r => r.type === 'start');
-    if (startRoom) this.shopSystem.spawnInRoom(startRoom);
+    if (startRoom) {
+      const divine = balance.shop.divineArrowItem;
+      const shouldSpawnDivine =
+        !this.perks.divineVolley &&
+        !this.hasOwnedPurchase(divine.productId) &&
+        Math.random() < (this.floor === 1 ? divine.spawnChanceFloor1 : divine.spawnChanceOtherFloors);
+      if (shouldSpawnDivine) {
+        const divineItem: ShopItemInstance = {
+          statKey: 'arrowDamage',
+          rarity: divine.rarity,
+          bonuses: [{ statKey: 'arrowDamage', value: divine.arrowDamageBonus }],
+          price: divine.price,
+          name: t().divineArrowItemName,
+          frame: divine.frame,
+          purchaseProductId: divine.productId,
+          premiumPrice: divine.portalPrice,
+          specialEffect: {
+            type: 'divineVolley',
+            extraArrows: divine.extraArrows,
+            damageMultiplier: divine.damageMultiplier,
+            angleOffsetDeg: divine.angleOffsetDeg,
+          },
+        };
+        this.shopSystem.spawnInRoom(startRoom, divineItem);
+      } else {
+        this.shopSystem.spawnInRoom(startRoom);
+      }
+    }
 
     // Heal item near stair — 100% on floor 1, 25% otherwise
     if (this.floor === 1 || Math.random() < 0.25) {
@@ -561,7 +597,13 @@ export class GameScene extends Phaser.Scene {
 
     const eJustDown = Phaser.Input.Keyboard.JustDown(this.eKey);
     const bought    = this.shopSystem?.update(this.player.x, this.player.y, this.coinValue, eJustDown) ?? null;
-    if (bought) this.applyPurchase(bought);
+    if (bought) {
+      if (bought.purchaseProductId) {
+        void this.tryPremiumPurchase(bought);
+      } else {
+        this.applyPurchase(bought);
+      }
+    }
     if (!bought && eJustDown) this.processAttack3();
 
     this.game.events.emit('abilityState', {
@@ -792,9 +834,11 @@ export class GameScene extends Phaser.Scene {
 
   private applyPurchase(inst: ShopItemInstance): void {
     this.audio.play('buy');
-    this.coinValue -= inst.price;
-    this.registry.set('coinValue', this.coinValue);
-    this.game.events.emit('coinsChanged', this.coinValue);
+    if (!inst.purchaseProductId) {
+      this.coinValue -= inst.price;
+      this.registry.set('coinValue', this.coinValue);
+      this.game.events.emit('coinsChanged', this.coinValue);
+    }
 
     if (inst.healToFull) {
       this.player.heal(this.player.maxHp);
@@ -818,8 +862,10 @@ export class GameScene extends Phaser.Scene {
           break;
       }
     }
+    this.applySpecialEffect(inst.specialEffect);
     this.player.updateStats(this.stats);
     setStats(this.registry, this.stats);
+    setPerks(this.registry, this.perks);
     this.game.events.emit('playerStatsChanged', {
       attack:      this.stats.attack,
       arrowDamage: this.stats.arrowDamage,
@@ -831,6 +877,54 @@ export class GameScene extends Phaser.Scene {
       this.registry.set('purchasedItems', list);
     }
     this.game.events.emit('itemBought', { frame: inst.frame, name: inst.name });
+    saveRun(
+      this.floor,
+      this.player.hp,
+      this.coinValue,
+      this.stats,
+      this.perks,
+      this.registry.get('purchasedItems') ?? [],
+    );
+  }
+
+  private async tryPremiumPurchase(inst: ShopItemInstance): Promise<void> {
+    if (this.premiumPurchasePending || !inst.purchaseProductId) return;
+    this.premiumPurchasePending = true;
+    try {
+      const payments = (window as any).__payments;
+      if (!payments) return;
+      const purchase = await payments.purchase({ id: inst.purchaseProductId }).catch(() => null);
+      if (!purchase) return;
+      this.markOwnedPurchase(inst.purchaseProductId);
+      this.applyPurchase(inst);
+      this.shopSystem?.removeItem(inst);
+    } finally {
+      this.premiumPurchasePending = false;
+    }
+  }
+
+  private applySpecialEffect(effect?: SpecialEffect): void {
+    if (!effect) return;
+    switch (effect.type) {
+      case 'divineVolley':
+        this.perks.divineVolley = true;
+        break;
+    }
+  }
+
+  private hasOwnedPurchase(productId?: string): boolean {
+    if (!productId) return false;
+    const owned = (window as any).__ownedPurchases as Set<string> | undefined;
+    return !!owned?.has(productId);
+  }
+
+  private markOwnedPurchase(productId: string): void {
+    let owned = (window as any).__ownedPurchases as Set<string> | undefined;
+    if (!owned) {
+      owned = new Set<string>();
+      (window as any).__ownedPurchases = owned;
+    }
+    owned.add(productId);
   }
 
   // ── Stair bar ─────────────────────────────────────────────────
@@ -884,7 +978,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('playerHp',  this.player.hp);
     this.registry.set('coinValue', this.coinValue);
     setStats(this.registry, this.stats);
-    saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats, this.registry.get('purchasedItems') ?? []);
+    saveRun(this.floor + 1, this.player.hp, this.coinValue, this.stats, this.perks, this.registry.get('purchasedItems') ?? []);
     this.audio.detach();
     this.shopSystem?.destroy();
     this.shopSystem = null;
@@ -905,6 +999,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.remove('coinValue');
     this.registry.remove('purchasedItems');
     clearStats(this.registry);
+    clearPerks(this.registry);
     clearRun();
 
     const cam = this.cameras.main;

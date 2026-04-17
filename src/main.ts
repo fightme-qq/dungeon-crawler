@@ -16,6 +16,9 @@ function getViewportSize() {
 // Флаги синхронизации: ready() вызываем только когда оба готовы
 (window as any).__sdkDone  = false;
 (window as any).__bootDone = false;
+(window as any).__payments = null;
+(window as any).__paymentsAvailable = false;
+(window as any).__ownedPurchases = new Set<string>();
 
 function trySignalReady() {
   if ((window as any).__sdkDone && (window as any).__bootDone) {
@@ -39,6 +42,27 @@ setTimeout(() => {
     if (typeof YaGames !== 'undefined') {
       const ysdk = await YaGames.init();
       (window as any).ysdk = ysdk;
+      try {
+        const payments = await ysdk.getPayments();
+        (window as any).__payments = payments;
+        (window as any).__paymentsAvailable = true;
+        try {
+          const purchases = await payments.getPurchases();
+          const owned = new Set<string>();
+          if (Array.isArray(purchases)) {
+            for (const purchase of purchases) {
+              if (purchase?.productID) owned.add(purchase.productID);
+            }
+          }
+          (window as any).__ownedPurchases = owned;
+        } catch {
+          (window as any).__ownedPurchases = new Set<string>();
+        }
+      } catch {
+        (window as any).__payments = null;
+        (window as any).__paymentsAvailable = false;
+        (window as any).__ownedPurchases = new Set<string>();
+      }
       refreshLang(ysdk); // передаём объект напрямую — Яндекс фиксирует чтение i18n.lang
 
       // Правило 1.3 / 1.19.4: пауза и возобновление по событиям платформы
