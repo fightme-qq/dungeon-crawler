@@ -70,10 +70,10 @@ const STRINGS = {
     clickRestart:   'Нажмите для перезапуска',
     floor:          (n: number) => `Этаж ${n}`,
     pressEBuy:      'E — купить',
-    pressEBuyPremium: (n: number) => `E — купить за ${n} ₽`,
+    pressEBuyPremium: (n: number) => `E — купить за ${n} ян`,
     needSilver:     (n: number) => `Нужно ${n} серебра`,
     paymentsUnavailable: 'Покупки недоступны',
-    portalPrice:    (n: number) => `${n} ₽`,
+    portalPrice:    (n: number) => `${n} ян`,
 
     rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный', 'Божественный'],
 
