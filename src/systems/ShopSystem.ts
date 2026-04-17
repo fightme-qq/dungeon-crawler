@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { Room } from './DungeonGenerator';
 import { TILE_S } from '../utils/constants';
-import { LANG, t } from '../lang';
+import { t } from '../lang';
 
 export type StatKey = 'attack' | 'arrowDamage' | 'armor' | 'critMultiplier' | 'critChance' | 'maxHp';
 const RARITY_COLORS_HEX = ['#aaaaaa', '#44cc44', '#4488ff', '#cc44ff', '#ffaa00', '#ff5a5a'];
@@ -371,16 +371,14 @@ export class ShopSystem {
 
   private getPromptText(inst: ShopItemInstance, canAfford: boolean): string {
     if (inst.purchaseProductId) {
-      if (!canAfford) return LANG === 'ru' ? 'Покупки недоступны' : 'Payments unavailable';
+      if (!canAfford) return t().paymentsUnavailable;
       const price = inst.premiumPrice ?? 0;
-      return LANG === 'ru'
-        ? `E — купить за ${price} ₽`
-        : `Press E to buy for ${price} YAN`;
+      return t().pressEBuyPremium(price);
     }
     return canAfford ? t().pressEBuy : t().needSilver(inst.price);
   }
 
   private formatPremiumPrice(price: number): string {
-    return LANG === 'ru' ? `${price} ₽` : `${price} YAN`;
+    return t().portalPrice(price);
   }
 }

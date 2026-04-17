@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gameplay Work"
+  short_description: "Add or modify gameplay systems for this dungeon crawler."
+  default_prompt: "Use this skill to implement gameplay features, combat changes, enemies, loot, balance, and run-state updates for this Phaser dungeon crawler."

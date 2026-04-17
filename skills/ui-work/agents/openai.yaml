@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Work"
+  short_description: "Update HUD, minimap, menus, and responsive UI."
+  default_prompt: "Use this skill to update UIScene, HUD layout, minimap, overlays, menus, and responsive UI behavior for this Phaser dungeon crawler."
