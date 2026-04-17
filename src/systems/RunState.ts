@@ -11,6 +11,7 @@ export interface PlayerStats {
 
 export interface PlayerPerks {
   divineVolley: boolean;
+  divineBloodOath: boolean;
 }
 
 // ── localStorage save (Rule 1.9: page refresh preserves run) ─────────────────
@@ -73,6 +74,7 @@ export function baseStats(): PlayerStats {
 export function basePerks(): PlayerPerks {
   return {
     divineVolley: false,
+    divineBloodOath: false,
   };
 }
 

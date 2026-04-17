@@ -40,6 +40,17 @@ When adding a new item, follow this checklist:
 6. If the item needs a new icon or asset, preload it in `BootScene.ts` only when it is not already part of an existing atlas/spritesheet.
 7. For premium items, keep the Yandex-specific purchase metadata in `balance.json`, restore ownership on startup, and make sure the item does not respawn once owned when that is the intended behavior.
 
+Current local test helpers already in the project:
+
+1. `?premiumtest=1` on `localhost` / `127.0.0.1` enables free local claiming of premium divine items without calling the live Yandex payment flow.
+2. `?premiumreset=1` on `localhost` / `127.0.0.1` clears the saved run and local owned-premium state before startup.
+3. These flags can be combined, for example:
+   `http://127.0.0.1:3008/?premiumreset=1&premiumtest=1`
+4. Language can be forced locally with `?lang=ru` or `?lang=en`, and can be combined with the premium flags.
+5. Premium-test UI strings and indicators live in `src/lang.ts`; bootstrap flag parsing lives in `src/main.ts`.
+6. Current divine items are premium, permanent unlocks and are restored on fresh runs from owned purchase state.
+7. Only one divine item may appear on a floor, chosen randomly from divine items the player does not already own.
+
 Use these heuristics:
 
 - Touch `Player.ts` for movement, attacks, input-driven abilities, or player stats application.

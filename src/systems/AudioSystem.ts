@@ -13,18 +13,14 @@ const SFX_GROUPS: Record<string, string[]> = {
   buy:          ['sfx_buy'],
 };
 
-const MUSIC_POOL = ['music_regular', 'music_battle', 'music_ambient1', 'music_ambient2'];
+const MUSIC_POOL = ['music_ambient1', 'music_ambient2'];
 
 const AUDIO_FILES: Record<string, string> = {
-  music_regular:  'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Den_(Regular).wav',
-  music_battle:   'music/Minifantasy_Dungeon_Music/Minifantasy_Dungeon_Music/Music/Goblins_Dance_(Battle).wav',
   music_ambient1: 'music/Minifantasy_Dungeon_Music/dusk-memory-aesthetic-danger-lion-x-main-version-11376-02-13.mp3',
   music_ambient2: 'music/Minifantasy_Dungeon_Music/time-lost-ill-kitchen-main-version-6513-03-14.mp3',
   sfx_sword_1:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_1.wav',
   sfx_sword_2:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_2.wav',
   sfx_sword_3:   'music/Minifantasy_Dungeon_SFX/07_human_atk_sword_3.wav',
-  sfx_lunge_1:   'music/Minifantasy_Dungeon_SFX/08_human_charge_1.wav',
-  sfx_lunge_2:   'music/Minifantasy_Dungeon_SFX/08_human_charge_2.wav',
   sfx_arrow_1:   'music/Minifantasy_Dungeon_SFX/27_sword_miss_1.wav',
   sfx_arrow_2:   'music/Minifantasy_Dungeon_SFX/27_sword_miss_2.wav',
   sfx_phit_1:    'music/Minifantasy_Dungeon_SFX/11_human_damage_1.wav',

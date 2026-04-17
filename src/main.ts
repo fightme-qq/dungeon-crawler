@@ -3,8 +3,25 @@ import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { refreshLang } from './lang';
+import { clearRun } from './systems/RunState';
 
 declare const YaGames: { init(): Promise<any> } | undefined;
+
+function isLocalRuntime() {
+  return window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+}
+
+function isPremiumTestModeEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  const flag = params.get('premiumtest') ?? params.get('premium_test') ?? params.get('testpremium');
+  return isLocalRuntime() && flag === '1';
+}
+
+function isPremiumResetEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  const flag = params.get('premiumreset') ?? params.get('premium_reset') ?? params.get('resetpremium');
+  return isLocalRuntime() && flag === '1';
+}
 
 function getViewportSize() {
   return {
@@ -19,6 +36,12 @@ function getViewportSize() {
 (window as any).__payments = null;
 (window as any).__paymentsAvailable = false;
 (window as any).__ownedPurchases = new Set<string>();
+(window as any).__premiumTestMode = isPremiumTestModeEnabled();
+
+if (isPremiumResetEnabled()) {
+  clearRun();
+  (window as any).__ownedPurchases = new Set<string>();
+}
 
 function trySignalReady() {
   if ((window as any).__sdkDone && (window as any).__bootDone) {

@@ -86,6 +86,67 @@ export class GameScene extends Phaser.Scene {
   private stats!: PlayerStats;
   private perks!: PlayerPerks;
   private premiumPurchasePending = false;
+  private restartAdPending = false;
+
+  private isPremiumTestMode() {
+    return (window as any).__premiumTestMode === true;
+  }
+
+  private applySwordLifesteal(damage: number): void {
+    if (!this.perks.divineBloodOath || damage <= 0) return;
+    const pct = balance.shop.divineBloodOathItem.lifeStealPercent / 100;
+    const heal = Math.max(1, Math.round(damage * pct));
+    const before = this.player.hp;
+    this.player.heal(heal);
+    if (this.player.hp !== before) {
+      this.registry.set('playerHp', this.player.hp);
+      this.game.events.emit('playerHpChanged', this.player.hp, this.player.maxHp);
+      this.floatText.showHeal(this.player.x, this.player.y, this.player.hp - before);
+    }
+  }
+
+  private buildAvailableDivineItems(): ShopItemInstance[] {
+    const items: ShopItemInstance[] = [];
+    const arrow = balance.shop.divineArrowItem;
+    if (!this.perks.divineVolley && !this.hasOwnedPurchase(arrow.productId)) {
+      items.push({
+        statKey: 'arrowDamage',
+        rarity: arrow.rarity,
+        bonuses: [{ statKey: 'arrowDamage', value: arrow.arrowDamageBonus }],
+        price: arrow.price,
+        name: t().divineArrowItemName,
+        frame: arrow.frame,
+        purchaseProductId: arrow.productId,
+        premiumPrice: arrow.portalPrice,
+        specialEffect: {
+          type: 'divineVolley',
+          extraArrows: arrow.extraArrows,
+          damageMultiplier: arrow.damageMultiplier,
+          angleOffsetDeg: arrow.angleOffsetDeg,
+        },
+      });
+    }
+
+    const blood = balance.shop.divineBloodOathItem;
+    if (!this.perks.divineBloodOath && !this.hasOwnedPurchase(blood.productId)) {
+      items.push({
+        statKey: 'attack',
+        rarity: blood.rarity,
+        bonuses: [],
+        price: blood.price,
+        name: t().divineBloodOathItemName,
+        frame: blood.frame,
+        purchaseProductId: blood.productId,
+        premiumPrice: blood.portalPrice,
+        specialEffect: {
+          type: 'divineBloodOath',
+          lifeStealPercent: blood.lifeStealPercent,
+        },
+      });
+    }
+
+    return items;
+  }
 
   constructor() {
     super({ key: 'GameScene' });
@@ -545,30 +606,28 @@ export class GameScene extends Phaser.Scene {
     this.arrowSystem.setChests(this.chests);
 
     this.shopSystem = new ShopSystem(this);
+    if (this.isPremiumTestMode()) {
+      this.add.text(this.scale.gameSize.width - 10, this.scale.gameSize.height - 10, t().premiumTestMode, {
+        fontSize: '11px',
+        fontStyle: 'bold',
+        color: '#ff9090',
+        backgroundColor: '#220000',
+        padding: { x: 6, y: 4 },
+        resolution: 4,
+      })
+        .setOrigin(1, 1)
+        .setScrollFactor(0)
+        .setDepth(100000);
+    }
     const startRoom = dungeon.rooms.find(r => r.type === 'start');
     if (startRoom) {
-      const divine = balance.shop.divineArrowItem;
-      const shouldSpawnDivine =
-        !this.perks.divineVolley &&
-        !this.hasOwnedPurchase(divine.productId) &&
-        Math.random() < (this.floor === 1 ? divine.spawnChanceFloor1 : divine.spawnChanceOtherFloors);
+      const divineCandidates = this.buildAvailableDivineItems();
+      const divineSpawnChance = this.floor === 1
+        ? balance.shop.divineSpawnChanceFloor1
+        : balance.shop.divineSpawnChanceOtherFloors;
+      const shouldSpawnDivine = divineCandidates.length > 0 && Math.random() < divineSpawnChance;
       if (shouldSpawnDivine) {
-        const divineItem: ShopItemInstance = {
-          statKey: 'arrowDamage',
-          rarity: divine.rarity,
-          bonuses: [{ statKey: 'arrowDamage', value: divine.arrowDamageBonus }],
-          price: divine.price,
-          name: t().divineArrowItemName,
-          frame: divine.frame,
-          purchaseProductId: divine.productId,
-          premiumPrice: divine.portalPrice,
-          specialEffect: {
-            type: 'divineVolley',
-            extraArrows: divine.extraArrows,
-            damageMultiplier: divine.damageMultiplier,
-            angleOffsetDeg: divine.angleOffsetDeg,
-          },
-        };
+        const divineItem = Phaser.Utils.Array.GetRandom(divineCandidates);
         this.shopSystem.spawnInRoom(startRoom, divineItem);
       } else {
         this.shopSystem.spawnInRoom(startRoom);
@@ -780,6 +839,7 @@ export class GameScene extends Phaser.Scene {
       const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
+      this.applySwordLifesteal(dmg);
       this.audio.play('enemy_hit');
     }
   }
@@ -795,6 +855,7 @@ export class GameScene extends Phaser.Scene {
       const ekb = enemy.getKnockbackForce() * kbMult;
       enemy.takeDamage(dmg, Math.cos(kb) * ekb, Math.sin(kb) * ekb);
       this.floatText.showDamage(enemy.x, enemy.y, dmg, isCrit);
+      this.applySwordLifesteal(dmg);
       this.audio.play('enemy_hit');
     }
   }
@@ -908,6 +969,12 @@ export class GameScene extends Phaser.Scene {
     if (this.premiumPurchasePending || !inst.purchaseProductId) return;
     this.premiumPurchasePending = true;
     try {
+      if (this.isPremiumTestMode()) {
+        this.markOwnedPurchase(inst.purchaseProductId);
+        this.applyPurchase(inst);
+        this.shopSystem?.removeItem(inst);
+        return;
+      }
       const payments = (window as any).__payments;
       if (!payments) return;
       const purchase = await payments.purchase({ id: inst.purchaseProductId }).catch(() => null);
@@ -925,6 +992,9 @@ export class GameScene extends Phaser.Scene {
     switch (effect.type) {
       case 'divineVolley':
         this.perks.divineVolley = true;
+        break;
+      case 'divineBloodOath':
+        this.perks.divineBloodOath = true;
         break;
     }
   }
@@ -945,20 +1015,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyOwnedPremiumUnlocksForFreshRun(): void {
-    const divine = balance.shop.divineArrowItem;
-    if (!this.hasOwnedPurchase(divine.productId)) return;
+    const list: PurchasedItem[] = this.registry.get('purchasedItems') ?? [];
 
-    this.stats.arrowDamage += divine.arrowDamageBonus;
-    this.perks.divineVolley = true;
+    const arrow = balance.shop.divineArrowItem;
+    if (this.hasOwnedPurchase(arrow.productId)) {
+      this.stats.arrowDamage += arrow.arrowDamageBonus;
+      this.perks.divineVolley = true;
+      const alreadyListed = list.some(item => item.frame === arrow.frame && item.name === t().divineArrowItemName);
+      if (!alreadyListed) list.push({ frame: arrow.frame, name: t().divineArrowItemName });
+    }
+
+    const blood = balance.shop.divineBloodOathItem;
+    if (this.hasOwnedPurchase(blood.productId)) {
+      this.perks.divineBloodOath = true;
+      const alreadyListed = list.some(item => item.frame === blood.frame && item.name === t().divineBloodOathItemName);
+      if (!alreadyListed) list.push({ frame: blood.frame, name: t().divineBloodOathItemName });
+    }
+
     setStats(this.registry, this.stats);
     setPerks(this.registry, this.perks);
-
-    const list: PurchasedItem[] = this.registry.get('purchasedItems') ?? [];
-    const alreadyListed = list.some(item => item.frame === divine.frame && item.name === t().divineArrowItemName);
-    if (!alreadyListed) {
-      list.push({ frame: divine.frame, name: t().divineArrowItemName });
-      this.registry.set('purchasedItems', list);
-    }
+    this.registry.set('purchasedItems', list);
   }
 
   // ── Stair bar ─────────────────────────────────────────────────
@@ -1021,6 +1097,55 @@ export class GameScene extends Phaser.Scene {
     this.scene.restart();
   }
 
+  private async showRestartInterstitial(): Promise<void> {
+    if (this.restartAdPending) return;
+    this.restartAdPending = true;
+    try {
+      const ysdk = (window as any).ysdk;
+      const adv = ysdk?.adv;
+      if (!adv?.showFullscreenAdv) {
+        this.scene.restart();
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        try {
+          adv.showFullscreenAdv({
+            callbacks: {
+              onOpen: () => {
+                const g = (window as any).__phaserGame;
+                if (g?.sound) g.sound.mute = true;
+              },
+              onClose: () => {
+                const g = (window as any).__phaserGame;
+                if (g?.sound) g.sound.mute = false;
+                finish();
+              },
+              onError: () => {
+                const g = (window as any).__phaserGame;
+                if (g?.sound) g.sound.mute = false;
+                finish();
+              },
+            },
+          });
+        } catch {
+          finish();
+        }
+      });
+
+      this.scene.restart();
+    } finally {
+      this.restartAdPending = false;
+    }
+  }
+
   private showGameOver() {
     (window as any).ysdk?.features?.GameplayAPI?.stop();
     this.audio.destroy();
@@ -1049,12 +1174,12 @@ export class GameScene extends Phaser.Scene {
     this.input.off('pointerdown');
     this.input.once('pointerdown', () => {
       this.scene.stop('UIScene');
-      this.scene.restart();
+      void this.showRestartInterstitial();
     });
     const rKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     rKey.once('down', () => {
       this.scene.stop('UIScene');
-      this.scene.restart();
+      void this.showRestartInterstitial();
     });
   }
 }

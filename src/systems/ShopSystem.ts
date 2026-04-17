@@ -9,10 +9,11 @@ const RARITY_COLORS_HEX = ['#aaaaaa', '#44cc44', '#4488ff', '#cc44ff', '#ffaa00'
 const RARITY_COLORS_INT = [0xaaaaaa,  0x44cc44,  0x4488ff,  0xcc44ff,  0xffaa00,  0xff5a5a];
 
 export interface SpecialEffect {
-  type: 'divineVolley';
-  extraArrows: number;
-  damageMultiplier: number;
-  angleOffsetDeg: number;
+  type: 'divineVolley' | 'divineBloodOath';
+  extraArrows?: number;
+  damageMultiplier?: number;
+  angleOffsetDeg?: number;
+  lifeStealPercent?: number;
 }
 
 export interface StatBonus {
@@ -44,6 +45,7 @@ interface WorldItem {
 const INTERACT_R = balance.shop.interactRadius;
 const W = 135, H = 70;
 const ICON_SRC_SIZE = 32;
+const MAX_CARD_TEXT_W = 210;
 
 // ── Icon & name pools per stat ────────────────────────────────────────────────
 
@@ -66,6 +68,10 @@ const ICON_POOLS: Record<StatKey, number[]> = {
 
 
 function pick<T>(arr: readonly T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function isPremiumTestMode() {
+  return (window as any).__premiumTestMode === true;
+}
 
 export class ShopSystem {
   private scene: Phaser.Scene;
@@ -130,7 +136,7 @@ export class ShopSystem {
       const inRange = dist < INTERACT_R;
       const isPremium = !!item.inst.purchaseProductId;
       const paymentsAvailable = (window as any).__paymentsAvailable !== false;
-      const canAfford = isPremium ? paymentsAvailable : coinValue >= item.inst.price;
+      const canAfford = isPremium ? (paymentsAvailable || isPremiumTestMode()) : coinValue >= item.inst.price;
 
       item.prompt.setVisible(inRange);
       item.prompt.setText(this.getPromptText(item.inst, canAfford));
@@ -272,7 +278,11 @@ export class ShopSystem {
 
     const bonusObjs: Phaser.GameObjects.Text[] = bonusLines.map(line =>
       s.add.text(0, 0, line, {
-        fontSize: '10px', fontStyle: 'bold', color: '#ffffff', resolution: 4,
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        resolution: 4,
+        wordWrap: { width: MAX_CARD_TEXT_W, useAdvancedWrap: true },
       }).setOrigin(0, 0)
     );
 
@@ -310,8 +320,9 @@ export class ShopSystem {
       ...bonusObjs.map(b => b.width),
       priceRowW,
     ];
-    const cardW = Math.max(MIN_W, Math.max(...allWidths) + PAD_L + PAD_R);
-    const cardH = H + (bonusLines.length - 1) * LINE;
+    const cardW = Math.max(MIN_W, Math.min(MAX_CARD_TEXT_W + PAD_L + PAD_R, Math.max(...allWidths) + PAD_L + PAD_R));
+    const bonusBlockH = bonusObjs.reduce((sum, b, i) => sum + b.height + (i < bonusObjs.length - 1 ? 2 : 0), 0);
+    const cardH = Math.max(H, 52 + bonusBlockH);
 
     // ── 4. Position everything now that cardW is known ─────────────────────────
     const lx = -cardW / 2; // left card edge
@@ -336,7 +347,11 @@ export class ShopSystem {
 
     nameText.setPosition(tx, -cardH + 5);
     rarText .setPosition(tx, -cardH + 20);
-    bonusObjs.forEach((b, i) => b.setPosition(tx, -cardH + 34 + i * LINE));
+    let bonusY = -cardH + 34;
+    bonusObjs.forEach((b) => {
+      b.setPosition(tx, bonusY);
+      bonusY += b.height + 2;
+    });
 
     // Price row
     const priceChildren: Phaser.GameObjects.GameObject[] = [];
@@ -401,14 +416,17 @@ export class ShopSystem {
     switch (effect.type) {
       case 'divineVolley':
         return t().specialEffects.divineVolley(
-          effect.extraArrows,
-          Math.round(effect.damageMultiplier * 100),
+          effect.extraArrows ?? 0,
+          Math.round((effect.damageMultiplier ?? 0) * 100),
         );
+      case 'divineBloodOath':
+        return t().specialEffects.divineBloodOath(effect.lifeStealPercent ?? 0);
     }
   }
 
   private getPromptText(inst: ShopItemInstance, canAfford: boolean): string {
     if (inst.purchaseProductId) {
+      if (isPremiumTestMode()) return t().pressEBuyPremiumTest;
       if (!canAfford) return t().paymentsUnavailable;
       const price = inst.premiumPrice ?? 0;
       return t().pressEBuyPremium(price);
@@ -417,6 +435,7 @@ export class ShopSystem {
   }
 
   private formatPremiumPrice(price: number): string {
+    if (isPremiumTestMode()) return t().premiumTestPrice;
     return t().portalPrice(price);
   }
 }

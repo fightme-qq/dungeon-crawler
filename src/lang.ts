@@ -35,6 +35,9 @@ const STRINGS = {
     paymentsUnavailable: 'Payments unavailable',
     portalPrice:    (n: number) => `${n} YAN`,
     permanentPurchase: 'FOREVER',
+    premiumTestMode: 'PREMIUM TEST MODE',
+    premiumTestPrice: 'FREE TEST',
+    pressEBuyPremiumTest: 'Press E to claim for free',
 
     rarities: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Divine'],
 
@@ -42,6 +45,7 @@ const STRINGS = {
     healItemEffect: 'Restores full HP',
     healItemRarity: 'Special',
     divineArrowItemName: 'Heavenstring Relic',
+    divineBloodOathItemName: 'Blood Oath Sigil',
 
     statBonus: {
       attack:         (v: number) => `+${v} sword damage`,
@@ -54,6 +58,7 @@ const STRINGS = {
 
     specialEffects: {
       divineVolley: (extraArrows: number, pct: number) => `+${extraArrows} side arrows for ${pct}% damage`,
+      divineBloodOath: (pct: number) => `Sword hits restore ${pct}% of dealt damage`,
     },
 
     itemNames: {
@@ -76,6 +81,9 @@ const STRINGS = {
     paymentsUnavailable: 'Покупки недоступны',
     portalPrice:    (n: number) => `${n} ян`,
     permanentPurchase: 'НАВСЕГДА',
+    premiumTestMode: 'ТЕСТ ПРЕМИУМ-ПОКУПКИ',
+    premiumTestPrice: 'БЕСПЛАТНО ТЕСТ',
+    pressEBuyPremiumTest: 'E — получить бесплатно',
 
     rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный', 'Божественный'],
 
@@ -83,6 +91,7 @@ const STRINGS = {
     healItemEffect: 'Восстанавливает все HP',
     healItemRarity: 'Особый',
     divineArrowItemName: 'Реликвия небострела',
+    divineBloodOathItemName: 'Печать кровавой клятвы',
 
     statBonus: {
       attack:         (v: number) => `+${v} урон мечом`,
@@ -95,6 +104,7 @@ const STRINGS = {
 
     specialEffects: {
       divineVolley: (extraArrows: number, pct: number) => `+${extraArrows} боковые стрелы по ${pct}% урона`,
+      divineBloodOath: (pct: number) => `Удары мечом восстанавливают ${pct}% от нанесённого урона`,
     },
 
     itemNames: {
