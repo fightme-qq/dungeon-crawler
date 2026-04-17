@@ -1150,6 +1150,7 @@ export class GameScene extends Phaser.Scene {
   private showGameOver() {
     const finalFloor = this.floor;
     const finalCoins = this.coinValue;
+    const finalItemFrames = ((this.registry.get('purchasedItems') ?? []) as PurchasedItem[]).map(item => item.frame);
     (window as any).ysdk?.features?.GameplayAPI?.stop();
     this.audio.destroy();
     this.shopSystem?.destroy();
@@ -1163,7 +1164,7 @@ export class GameScene extends Phaser.Scene {
     clearStats(this.registry);
     clearPerks(this.registry);
     clearRun();
-    void submitRunToLeaderboards(finalFloor, finalCoins);
+    void submitRunToLeaderboards(finalFloor, finalCoins, finalItemFrames);
 
     const cam = this.cameras.main;
     const cx = cam.width / 2;

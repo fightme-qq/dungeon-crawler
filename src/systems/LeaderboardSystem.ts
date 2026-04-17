@@ -3,6 +3,7 @@ export const LEADERBOARD_NAME = 'ironprotocolruns';
 const LOCAL_LEADERBOARD_KEY = 'ironProtocol_local_leaderboard_v1';
 const MAX_LOCAL_ROWS = 20;
 const SCORE_FLOOR_MULTIPLIER = 1_000_000;
+const MAX_EXTRA_ITEM_FRAMES = 6;
 
 const LOCAL_SAMPLE_NAMES = [
   'Ash', 'Mira', 'Rook', 'Nyx', 'Doran', 'Luna', 'Iris', 'Bran', 'Vera', 'Kite',
@@ -14,6 +15,7 @@ type LocalLeaderboardEntry = {
   score: number;
   floor: number;
   coins: number;
+  itemFrames: number[];
   ts: number;
 };
 
@@ -23,6 +25,7 @@ export type LeaderboardRow = {
   floor: number;
   coins: number;
   score: number;
+  itemFrames: number[];
   isPlayer?: boolean;
 };
 
@@ -49,6 +52,7 @@ function readLocalEntries(): LocalLeaderboardEntry[] {
       typeof row.score === 'number' &&
       typeof row.floor === 'number' &&
       typeof row.coins === 'number' &&
+      Array.isArray(row.itemFrames) &&
       typeof row.ts === 'number'
     ));
   } catch {
@@ -73,6 +77,7 @@ function buildSampleRows(): LocalLeaderboardEntry[] {
       name,
       floor,
       coins,
+      itemFrames: i % 3 === 0 ? [1099, 670, 1818] : i % 3 === 1 ? [729, 1788] : [1124, 1818, 670, 729],
       score: scoreFromRun(floor, coins),
       ts: i,
     };
@@ -91,16 +96,25 @@ export function scoreFromRun(floor: number, coins: number) {
   return Math.max(0, floor) * SCORE_FLOOR_MULTIPLIER + Math.max(0, coins);
 }
 
-export function encodeLeaderboardExtraData(floor: number, coins: number) {
-  return JSON.stringify({ floor, coins });
+export function encodeLeaderboardExtraData(floor: number, coins: number, itemFrames: number[]) {
+  return JSON.stringify({
+    f: floor,
+    c: coins,
+    i: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+  });
 }
 
 export function decodeLeaderboardExtraData(extraData: string | undefined, score: number) {
   try {
     if (extraData) {
       const parsed = JSON.parse(extraData);
-      if (typeof parsed?.floor === 'number' && typeof parsed?.coins === 'number') {
-        return { floor: parsed.floor, coins: parsed.coins };
+      const floor = typeof parsed?.f === 'number' ? parsed.f : parsed?.floor;
+      const coins = typeof parsed?.c === 'number' ? parsed.c : parsed?.coins;
+      const itemFrames = Array.isArray(parsed?.i)
+        ? parsed.i.filter((n: unknown) => typeof n === 'number').slice(0, MAX_EXTRA_ITEM_FRAMES)
+        : [];
+      if (typeof floor === 'number' && typeof coins === 'number') {
+        return { floor, coins, itemFrames };
       }
     }
   } catch {}
@@ -108,23 +122,25 @@ export function decodeLeaderboardExtraData(extraData: string | undefined, score:
   return {
     floor: Math.max(1, Math.floor(score / SCORE_FLOOR_MULTIPLIER)),
     coins: Math.max(0, score % SCORE_FLOOR_MULTIPLIER),
+    itemFrames: [] as number[],
   };
 }
 
-export function saveRunToLocalLeaderboard(floor: number, coins: number, name = 'You') {
+export function saveRunToLocalLeaderboard(floor: number, coins: number, itemFrames: number[], name = 'You') {
   const rows = ensureLocalRows();
   rows.push({
     name,
     floor,
     coins,
+    itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
     score: scoreFromRun(floor, coins),
     ts: Date.now(),
   });
   writeLocalEntries(rows);
 }
 
-export async function submitRunToLeaderboards(floor: number, coins: number) {
-  saveRunToLocalLeaderboard(floor, coins);
+export async function submitRunToLeaderboards(floor: number, coins: number, itemFrames: number[]) {
+  saveRunToLocalLeaderboard(floor, coins, itemFrames);
 
   const ysdk = (window as any).ysdk;
   if (!ysdk?.leaderboards?.setScore) return;
@@ -138,7 +154,7 @@ export async function submitRunToLeaderboards(floor: number, coins: number) {
     await ysdk.leaderboards.setScore(
       LEADERBOARD_NAME,
       scoreFromRun(floor, coins),
-      encodeLeaderboardExtraData(floor, coins),
+      encodeLeaderboardExtraData(floor, coins, itemFrames),
     );
   } catch {}
 }
@@ -165,6 +181,7 @@ function getLocalLeaderboardRows(): LeaderboardRow[] {
       floor: entry.floor,
       coins: entry.coins,
       score: entry.score,
+      itemFrames: entry.itemFrames ?? [],
       isPlayer: isLocalRuntime() && entry.name === 'You',
     }));
 }
@@ -190,6 +207,7 @@ export async function loadLeaderboardRows(hiddenUserLabel: string): Promise<Lead
         floor: extra.floor,
         coins: extra.coins,
         score: entry?.score ?? 0,
+        itemFrames: extra.itemFrames ?? [],
       } satisfies LeaderboardRow;
     }));
 

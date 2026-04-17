@@ -118,6 +118,8 @@ export class UIScene extends Phaser.Scene {
     rank: Phaser.GameObjects.Text;
     name: Phaser.GameObjects.Text;
     floor: Phaser.GameObjects.Text;
+    items: Phaser.GameObjects.Image[];
+    itemsOverflow: Phaser.GameObjects.Text;
     moneyIcons: [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
     moneyTexts: [Phaser.GameObjects.Text, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
   }[] = [];
@@ -207,19 +209,25 @@ export class UIScene extends Phaser.Scene {
       })
       .setPosition(this.viewportW - pad, pad + barH / 2);
 
-    const lbBtnH = 24 * s;
-    const lbBtnW = Math.max(120 * s, this.leaderboardButtonText.width + 30 * s);
+    const lbBtnH = 30 * s;
+    const iconSize = 20 * s;
+    const iconTextGap = 7 * s;
+    this.leaderboardButtonText
+      .setStyle({ fontSize: `${Math.max(11, Math.round(12 * s))}px`, strokeThickness: Math.max(2, Math.round(2 * s)) });
+    const textWidth = this.leaderboardButtonText.width;
+    const contentW = iconSize + iconTextGap + textWidth;
+    const lbBtnW = Math.max(140 * s, contentW + 20 * s);
     const lbBtnY = pad + barH / 2;
     const lbBtnX = this.floorText.x - this.floorText.displayWidth - 8 * s - lbBtnW / 2;
     this.leaderboardButtonBg
       .setSize(lbBtnW, lbBtnH)
       .setPosition(lbBtnX, lbBtnY);
+    const contentLeft = lbBtnX - contentW / 2;
     this.leaderboardButtonIcon
-      .setDisplaySize(16 * s, 16 * s)
-      .setPosition(lbBtnX - lbBtnW / 2 + 12 * s, lbBtnY);
+      .setDisplaySize(iconSize, iconSize)
+      .setPosition(contentLeft + iconSize / 2, lbBtnY + 0.5 * s);
     this.leaderboardButtonText
-      .setStyle({ fontSize: `${Math.max(11, Math.round(11 * s))}px`, strokeThickness: Math.max(2, Math.round(2 * s)) })
-      .setPosition(lbBtnX - lbBtnW / 2 + 24 * s, lbBtnY);
+      .setPosition(contentLeft + iconSize + iconTextGap, lbBtnY + 0.5 * s);
 
     const mmX = this.getMinimapX();
     const mmY = this.getMinimapY();
@@ -346,19 +354,25 @@ export class UIScene extends Phaser.Scene {
       backgroundColor: '#00000099', padding: { x: 6, y: 3 },
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
-    this.leaderboardButtonBg = this.add.rectangle(0, 0, 120, 24, 0x000000, 0.82)
-      .setStrokeStyle(1, 0x888888, 1)
+    this.leaderboardButtonBg = this.add.rectangle(0, 0, 120, 24, 0x140d12, 0.92)
+      .setStrokeStyle(1, 0xb28e59, 1)
       .setScrollFactor(0)
       .setDepth(100)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => this.leaderboardButtonBg.setFillStyle(0x111111, 0.92))
-      .on('pointerout', () => this.leaderboardButtonBg.setFillStyle(0x000000, 0.82))
+      .on('pointerover', () => {
+        this.leaderboardButtonBg.setFillStyle(0x23151d, 0.98);
+        this.leaderboardButtonBg.setStrokeStyle(1, 0xe0b86a, 1);
+      })
+      .on('pointerout', () => {
+        this.leaderboardButtonBg.setFillStyle(0x140d12, 0.92);
+        this.leaderboardButtonBg.setStrokeStyle(1, 0xb28e59, 1);
+      })
       .on('pointerdown', () => void this.toggleLeaderboard());
     this.leaderboardButtonIcon = this.add.image(0, 0, 'icons', LB_BUTTON_FRAME)
       .setScrollFactor(0)
       .setDepth(101);
     this.leaderboardButtonText = this.add.text(0, 0, t().leaderboard, {
-      fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+      fontSize: '11px', color: '#f4e8c4', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
 
     // Minimap frame
@@ -747,6 +761,18 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
 
       const bc = balance.coins;
+      const items = Array.from({ length: 6 }, () =>
+        this.add.image(0, 0, 'icons', 0)
+          .setScrollFactor(0)
+          .setDepth(702)
+          .setVisible(false)
+      );
+      const itemsOverflow = this.add.text(0, 0, '', {
+        fontSize: '12px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
       const moneyIcons = [
         this.add.image(0, 0, 'icons', bc.redFrame).setScrollFactor(0).setDepth(702).setVisible(false),
         this.add.image(0, 0, 'icons', bc.goldFrame).setScrollFactor(0).setDepth(702).setVisible(false),
@@ -764,7 +790,7 @@ export class UIScene extends Phaser.Scene {
         }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false),
       ] as [Phaser.GameObjects.Text, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
 
-      this.leaderboardRows.push({ bg, rank, name, floor, moneyIcons, moneyTexts });
+      this.leaderboardRows.push({ bg, rank, name, floor, items, itemsOverflow, moneyIcons, moneyTexts });
     }
   }
 
@@ -781,8 +807,11 @@ export class UIScene extends Phaser.Scene {
     const rankX = left + 22 * s;
     const nameX = left + 84 * s;
     const moneyRightX = left + panelW - 24 * s;
-    const moneyHeaderX = left + panelW - 126 * s;
-    const floorX = left + panelW - 250 * s;
+    const moneyHeaderX = left + panelW - 132 * s;
+    const floorX = left + panelW - 270 * s;
+    const itemsAreaLeftX = nameX + 172 * s;
+    const itemsAreaRightX = floorX - 30 * s;
+    const itemsCenterX = (itemsAreaLeftX + itemsAreaRightX) / 2;
 
     this.leaderboardBackdrop.setSize(this.viewportW, this.viewportH).setPosition(cx, cy);
     this.leaderboardPanel.setSize(panelW, panelH).setPosition(cx, cy);
@@ -805,12 +834,12 @@ export class UIScene extends Phaser.Scene {
         .setPosition(headerXs[i], headerY);
     });
 
-    const rowStartY = top + 136 * s;
-    const rowH = 19 * s;
+    const rowStartY = top + 140 * s;
+    const rowH = 28 * s;
     const rowW = panelW - pad * 2;
     this.leaderboardRows.forEach((row, i) => {
       const y = rowStartY + i * rowH;
-      row.bg.setSize(rowW, rowH - Math.max(2, 2 * s)).setPosition(cx, y);
+      row.bg.setSize(rowW, rowH - Math.max(1, 1 * s)).setPosition(cx, y);
       row.rank
         .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
         .setPosition(rankX, y);
@@ -818,8 +847,24 @@ export class UIScene extends Phaser.Scene {
         .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
         .setPosition(nameX, y);
       row.floor
-        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 54 * s, align: 'right' })
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 64 * s, align: 'right' })
         .setPosition(floorX, y);
+      row.items.forEach((icon, idx) => {
+        icon
+          .setDisplaySize(18 * s, 18 * s)
+          .setPosition(itemsCenterX + idx * 20 * s, y)
+          .setData('itemsCenterX', itemsCenterX)
+          .setData('itemsY', y)
+          .setData('itemsAreaLeftX', itemsAreaLeftX)
+          .setData('itemsAreaRightX', itemsAreaRightX);
+      });
+      row.itemsOverflow
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+        .setPosition(itemsCenterX, y)
+        .setData('itemsCenterX', itemsCenterX)
+        .setData('itemsY', y)
+        .setData('itemsAreaLeftX', itemsAreaLeftX)
+        .setData('itemsAreaRightX', itemsAreaRightX);
       row.moneyIcons.forEach(icon => icon.setDisplaySize(12 * s, 12 * s));
       row.moneyTexts.forEach(text => {
         text.setStyle({
@@ -891,6 +936,8 @@ export class UIScene extends Phaser.Scene {
       row.rank.setVisible(visible);
       row.name.setVisible(visible);
       row.floor.setVisible(visible);
+      row.items.forEach(icon => icon.setVisible(false));
+      row.itemsOverflow.setVisible(false);
       row.moneyIcons.forEach(icon => icon.setVisible(false));
       row.moneyTexts.forEach(text => text.setVisible(false));
 
@@ -900,8 +947,53 @@ export class UIScene extends Phaser.Scene {
       row.rank.setText(`#${entry.rank}`);
       row.name.setText(entry.name.length > 22 ? `${entry.name.slice(0, 21)}…` : entry.name);
       row.floor.setText(String(entry.floor));
+      this.layoutLeaderboardItemRow(row.items, row.itemsOverflow, entry.itemFrames ?? []);
       this.layoutLeaderboardMoneyRow(row, entry.coins);
     });
+  }
+
+  private layoutLeaderboardItemRow(
+    icons: Phaser.GameObjects.Image[],
+    overflowText: Phaser.GameObjects.Text,
+    itemFrames: number[],
+  ) {
+    const visibleFrames = itemFrames.slice(0, icons.length);
+    const overflowCount = Math.max(0, itemFrames.length - icons.length);
+    const s = this.uiScale;
+    const step = 20 * s;
+    const iconSize = 18 * s;
+    const centerX = Number(icons[0]?.getData('itemsCenterX') ?? overflowText.getData('itemsCenterX') ?? 0);
+    const areaLeftX = Number(icons[0]?.getData('itemsAreaLeftX') ?? overflowText.getData('itemsAreaLeftX') ?? centerX);
+    const areaRightX = Number(icons[0]?.getData('itemsAreaRightX') ?? overflowText.getData('itemsAreaRightX') ?? centerX);
+    const y = Number(icons[0]?.getData('itemsY') ?? overflowText.getData('itemsY') ?? overflowText.y);
+    const totalSlots = visibleFrames.length + (overflowCount > 0 ? 1 : 0);
+    const totalWidth = totalSlots > 0 ? totalSlots * step - (step - iconSize) : 0;
+    const clampedStartX = Phaser.Math.Clamp(
+      centerX - totalWidth / 2,
+      areaLeftX,
+      Math.max(areaLeftX, areaRightX - totalWidth),
+    );
+    let curX = clampedStartX;
+
+    overflowText.setVisible(false);
+
+    for (let i = 0; i < icons.length; i++) {
+      const frame = visibleFrames[i];
+      const visible = typeof frame === 'number';
+      icons[i].setVisible(visible);
+      if (!visible) continue;
+      icons[i]
+        .setFrame(frame)
+        .setPosition(curX + iconSize / 2, y);
+      curX += step;
+    }
+
+    if (overflowCount > 0) {
+      overflowText
+        .setText(`+${overflowCount}`)
+        .setPosition(curX, y)
+        .setVisible(true);
+    }
   }
 
   private layoutLeaderboardMoneyRow(
