@@ -50,6 +50,9 @@ function getWallFrame(tiles: number[][], col: number, row: number, mapW: number,
 }
 
 const STAIR_RADIUS = TILE_S; // how close to stair to trigger (covers 2×2 visual)
+const BASE_VIEW_W = 1280;
+const BASE_VIEW_H = 720;
+const BASE_CAMERA_ZOOM = 1.5;
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -84,6 +87,14 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  private updateResponsiveZoom() {
+    const fitScale = Math.min(
+      this.scale.gameSize.width / BASE_VIEW_W,
+      this.scale.gameSize.height / BASE_VIEW_H,
+    );
+    this.cameras.main.setZoom(BASE_CAMERA_ZOOM * fitScale);
   }
 
   create() {
@@ -498,9 +509,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.enemies, this.walls);
 
-    this.cameras.main.setZoom(1.5);
+    this.updateResponsiveZoom();
     this.cameras.main.setBounds(0, 0, width * TILE_S, height * TILE_S);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.scale.on('resize', this.updateResponsiveZoom, this);
 
     this.floatText  = new FloatTextSystem(this);
     this.arrowSystem = new ArrowSystem(this, this.enemies, tiles,
@@ -526,6 +538,10 @@ export class GameScene extends Phaser.Scene {
     const dungeonData = { tiles, mapWidth: width, mapHeight: height, stairTileX: stairPos.x, stairTileY: stairPos.y, startTileX: sr0.x + Math.floor(sr0.w / 2), startTileY: sr0.y + Math.floor(sr0.h / 2) };
     this.registry.set('dungeonData', dungeonData);
     this.game.events.emit('dungeonReady', dungeonData);
+
+    this.events.once('shutdown', () => {
+      this.scale.off('resize', this.updateResponsiveZoom, this);
+    });
   }
 
   update(_time: number, delta: number) {
