@@ -118,7 +118,8 @@ export class UIScene extends Phaser.Scene {
     rank: Phaser.GameObjects.Text;
     name: Phaser.GameObjects.Text;
     floor: Phaser.GameObjects.Text;
-    money: Phaser.GameObjects.Text;
+    moneyIcons: [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
+    moneyTexts: [Phaser.GameObjects.Text, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
   }[] = [];
   private leaderboardEntries: LeaderboardRow[] = [];
   private leaderboardOpen = false;
@@ -744,15 +745,26 @@ export class UIScene extends Phaser.Scene {
         fixedWidth: 70,
         align: 'right',
       }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
-      const money = this.add.text(0, 0, '', {
-        fontSize: '15px',
-        color: '#cde7ff',
-        stroke: '#000000',
-        strokeThickness: 3,
-        fixedWidth: 70,
-        align: 'right',
-      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
-      this.leaderboardRows.push({ bg, rank, name, floor, money });
+
+      const bc = balance.coins;
+      const moneyIcons = [
+        this.add.image(0, 0, 'icons', bc.redFrame).setScrollFactor(0).setDepth(702).setVisible(false),
+        this.add.image(0, 0, 'icons', bc.goldFrame).setScrollFactor(0).setDepth(702).setVisible(false),
+        this.add.image(0, 0, 'icons', bc.silverFrame).setScrollFactor(0).setDepth(702).setVisible(false),
+      ] as [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
+      const moneyTexts = [
+        this.add.text(0, 0, '', {
+          fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false),
+        this.add.text(0, 0, '', {
+          fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false),
+        this.add.text(0, 0, '', {
+          fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false),
+      ] as [Phaser.GameObjects.Text, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
+
+      this.leaderboardRows.push({ bg, rank, name, floor, moneyIcons, moneyTexts });
     }
   }
 
@@ -768,8 +780,9 @@ export class UIScene extends Phaser.Scene {
     const pad = 18 * s;
     const rankX = left + 22 * s;
     const nameX = left + 84 * s;
-    const floorX = left + panelW - 190 * s;
-    const moneyX = left + panelW - 92 * s;
+    const moneyRightX = left + panelW - 24 * s;
+    const moneyHeaderX = left + panelW - 126 * s;
+    const floorX = left + panelW - 250 * s;
 
     this.leaderboardBackdrop.setSize(this.viewportW, this.viewportH).setPosition(cx, cy);
     this.leaderboardPanel.setSize(panelW, panelH).setPosition(cx, cy);
@@ -785,7 +798,7 @@ export class UIScene extends Phaser.Scene {
       .setPosition(left + panelW - pad, top + panelH - pad);
 
     const headerY = top + 106 * s;
-    const headerXs = [rankX, nameX, floorX, moneyX];
+    const headerXs = [rankX, nameX, floorX, moneyHeaderX];
     this.leaderboardHeaderTexts.forEach((text, i) => {
       text
         .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
@@ -805,11 +818,20 @@ export class UIScene extends Phaser.Scene {
         .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
         .setPosition(nameX, y);
       row.floor
-        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 70 * s, align: 'right' })
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 54 * s, align: 'right' })
         .setPosition(floorX, y);
-      row.money
-        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 70 * s, align: 'right' })
-        .setPosition(moneyX, y);
+      row.moneyIcons.forEach(icon => icon.setDisplaySize(12 * s, 12 * s));
+      row.moneyTexts.forEach(text => {
+        text.setStyle({
+          fontSize: `${Math.max(11, Math.round(12 * s))}px`,
+          strokeThickness: Math.max(2, Math.round(3 * s)),
+        });
+      });
+
+      for (let idx = 0; idx < 3; idx++) {
+        row.moneyIcons[idx].setPosition(moneyRightX, y).setData('moneyRightX', moneyRightX);
+        row.moneyTexts[idx].setText('0').setPosition(moneyRightX, y).setData('moneyRightX', moneyRightX);
+      }
     });
   }
 
@@ -869,16 +891,69 @@ export class UIScene extends Phaser.Scene {
       row.rank.setVisible(visible);
       row.name.setVisible(visible);
       row.floor.setVisible(visible);
-      row.money.setVisible(visible);
+      row.moneyIcons.forEach(icon => icon.setVisible(false));
+      row.moneyTexts.forEach(text => text.setVisible(false));
 
-      if (!entry) return;
+      if (!visible || !entry) return;
 
       row.bg.setFillStyle(entry.isPlayer ? 0x3b262c : (i % 2 === 0 ? 0x23171d : 0x1a1116), 0.88);
       row.rank.setText(`#${entry.rank}`);
       row.name.setText(entry.name.length > 22 ? `${entry.name.slice(0, 21)}…` : entry.name);
       row.floor.setText(String(entry.floor));
-      row.money.setText(String(entry.coins));
+      this.layoutLeaderboardMoneyRow(row, entry.coins);
     });
+  }
+
+  private layoutLeaderboardMoneyRow(
+    row: {
+      moneyIcons: [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
+      moneyTexts: [Phaser.GameObjects.Text, Phaser.GameObjects.Text, Phaser.GameObjects.Text];
+    },
+    total: number,
+  ) {
+    const bc = balance.coins;
+    const counts = [
+      Math.floor(total / bc.redValue),
+      Math.floor((total % bc.redValue) / bc.goldValue),
+      total % bc.goldValue,
+    ];
+
+    const s = this.uiScale;
+    const firstIcon = row.moneyIcons[0];
+    const y = firstIcon.y;
+    const rightX = Number(row.moneyIcons[0].getData('moneyRightX') ?? row.moneyIcons[0].x);
+    const iconSize = 12 * s;
+    const textGap = 2 * s;
+    const groupGap = 4 * s;
+    const groups = counts
+      .map((count, i) => ({ count, i }))
+      .filter(group => group.count > 0);
+
+    let totalWidth = 0;
+    for (const group of groups) {
+      const text = row.moneyTexts[group.i];
+      text.setText(String(group.count));
+      totalWidth += iconSize + textGap + text.width;
+    }
+    if (groups.length > 1) totalWidth += groupGap * (groups.length - 1);
+
+    let curX = rightX - totalWidth;
+
+    for (let i = 0; i < 3; i++) {
+      const visible = counts[i] > 0;
+      row.moneyIcons[i].setVisible(visible);
+      row.moneyTexts[i].setVisible(visible);
+      if (!visible) continue;
+
+      row.moneyIcons[i]
+        .setDisplaySize(iconSize, iconSize)
+        .setPosition(curX + iconSize / 2, y);
+      row.moneyTexts[i]
+        .setText(String(counts[i]))
+        .setPosition(curX + iconSize + textGap, y);
+
+      curX += iconSize + textGap + row.moneyTexts[i].width + groupGap;
+    }
   }
 
   private onWheel(
