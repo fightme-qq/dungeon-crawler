@@ -30,6 +30,16 @@ Use this workflow:
 5. If a gameplay change affects HUD, emit or reuse scene events instead of coupling gameplay code directly to UI objects.
 6. Build after edits with `npm run build`.
 
+When adding a new item, follow this checklist:
+
+1. Put every gameplay number in `src/data/balance.json`: stat values, rarity data, prices, spawn chances, special-effect values, premium product ids, and portal prices.
+2. Add every visible item string to `src/lang.ts`: item name, rarity-facing labels if needed, special-effect text, prompt text, and any premium/persistent badge text.
+3. Keep item roll/build logic in `src/systems/ShopSystem.ts`. Use `GameScene.ts` only to decide where and when the item should spawn or be purchased.
+4. If the item changes run-wide stats or unlocks, persist that through `src/systems/RunState.ts` or owned Yandex purchase state instead of ad-hoc scene variables.
+5. If the item has a gameplay behavior effect, apply it in the narrowest owner: player/attack system/projectile system, not inside UI code.
+6. If the item needs a new icon or asset, preload it in `BootScene.ts` only when it is not already part of an existing atlas/spritesheet.
+7. For premium items, keep the Yandex-specific purchase metadata in `balance.json`, restore ownership on startup, and make sure the item does not respawn once owned when that is the intended behavior.
+
 Use these heuristics:
 
 - Touch `Player.ts` for movement, attacks, input-driven abilities, or player stats application.

@@ -294,6 +294,11 @@ export class ShopSystem {
           fontSize: '11px', fontStyle: 'bold', color: '#ffaaaa', resolution: 4,
         }).setOrigin(0, 0)
       : null;
+    const permanentBadgeText = inst.purchaseProductId
+      ? s.add.text(0, 0, t().permanentPurchase, {
+          fontSize: '8px', fontStyle: 'bold', color: '#ffd6d6', resolution: 4,
+        }).setOrigin(1, 1)
+      : null;
     const priceRowW = premiumPriceText
       ? premiumPriceText.width + 12
       : groups.length * (14 + 2) + priceTxts.reduce((sum, txt) => sum + txt.width + 4, 6);
@@ -315,11 +320,12 @@ export class ShopSystem {
     const bg     = s.add.rectangle(0, 0, cardW, cardH, 0x111111, 0.75).setOrigin(0.5, 1);
     const border = s.add.rectangle(0, 0, cardW, cardH).setOrigin(0.5, 1)
       .setStrokeStyle(1.5, col).setFillStyle(0, 0);
+    const glowCenterY = -cardH / 2;
     const divineOuterGlow = inst.rarity === 5
-      ? s.add.rectangle(0, 0, cardW + 18, cardH + 18, 0x5a1010, 0.16).setOrigin(0.5, 1)
+      ? s.add.rectangle(0, glowCenterY, cardW + 20, cardH + 20, 0x7a1010, 0.22).setOrigin(0.5, 0.5)
       : null;
     const divineMidGlow = inst.rarity === 5
-      ? s.add.rectangle(0, 0, cardW + 10, cardH + 10, 0xa81818, 0.22).setOrigin(0.5, 1)
+      ? s.add.rectangle(0, glowCenterY, cardW + 12, cardH + 12, 0xd02020, 0.3).setOrigin(0.5, 0.5)
       : null;
 
     const iconImg = s.add.image(lx + 13, -cardH + 30, 'icons', inst.frame)
@@ -346,13 +352,45 @@ export class ShopSystem {
         cx += 16 + priceTxts[i].width + 4;
       });
     }
+    if (permanentBadgeText) {
+      permanentBadgeText.setPosition(cardW / 2 - 8, -8);
+      priceChildren.push(permanentBadgeText);
+    }
 
     const children: Phaser.GameObjects.GameObject[] = [bg, border];
     if (divineOuterGlow) children.unshift(divineOuterGlow);
     if (divineMidGlow) children.unshift(divineMidGlow);
     children.push(iconImg, nameText, rarText, ...bonusObjs, ...priceChildren);
+    const container = s.add.container(0, 0, children);
 
-    return s.add.container(0, 0, children);
+    if (inst.rarity === 5) {
+      if (divineOuterGlow) {
+        s.tweens.add({
+          targets: divineOuterGlow,
+          alpha: { from: 0.18, to: 0.34 },
+          scaleX: { from: 1, to: 1.04 },
+          scaleY: { from: 1, to: 1.04 },
+          duration: 1000,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.InOut',
+        });
+      }
+      if (divineMidGlow) {
+        s.tweens.add({
+          targets: divineMidGlow,
+          alpha: { from: 0.24, to: 0.42 },
+          scaleX: { from: 1, to: 1.022 },
+          scaleY: { from: 1, to: 1.022 },
+          duration: 760,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.InOut',
+        });
+      }
+    }
+
+    return container;
   }
 
   private formatBonus(b: StatBonus): string {

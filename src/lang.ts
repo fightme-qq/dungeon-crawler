@@ -34,6 +34,7 @@ const STRINGS = {
     needSilver:     (n: number) => `Need ${n} silver`,
     paymentsUnavailable: 'Payments unavailable',
     portalPrice:    (n: number) => `${n} YAN`,
+    permanentPurchase: 'FOREVER',
 
     rarities: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Divine'],
 
@@ -74,6 +75,7 @@ const STRINGS = {
     needSilver:     (n: number) => `Нужно ${n} серебра`,
     paymentsUnavailable: 'Покупки недоступны',
     portalPrice:    (n: number) => `${n} ян`,
+    permanentPurchase: 'НАВСЕГДА',
 
     rarities: ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный', 'Божественный'],
 
