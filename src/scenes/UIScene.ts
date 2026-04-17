@@ -113,6 +113,10 @@ export class UIScene extends Phaser.Scene {
     this.cameras.main.setZoom(this.uiScale);
     this.viewportW = this.scale.gameSize.width / this.uiScale;
     this.viewportH = this.scale.gameSize.height / this.uiScale;
+    this.cameras.main.setScroll(
+      -(this.scale.gameSize.width - this.viewportW) / 2,
+      -(this.scale.gameSize.height - this.viewportH) / 2,
+    );
   }
 
   private getMinimapX() {
