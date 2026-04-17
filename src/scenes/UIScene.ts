@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import balance from '../data/balance.json';
 import { TILE_WALL } from '../systems/DungeonGenerator';
+import { LeaderboardRow, loadLeaderboardRows } from '../systems/LeaderboardSystem';
 import { t } from '../lang';
 
 const MAX_HP = balance.player.hp;
@@ -34,6 +35,8 @@ const C_STAIR        = 0xddcc22;
 const C_START        = 0x44aaff;
 const C_PLAYER       = 0x44ff44;
 const C_ENEMY        = 0xcc2222;
+const LB_BUTTON_FRAME = 14;
+const LB_VISIBLE_ROWS = 20;
 
 export class UIScene extends Phaser.Scene {
   private hpBarEmpty!:  Phaser.GameObjects.Sprite; // всегда виден (пустые слоты)
@@ -100,6 +103,26 @@ export class UIScene extends Phaser.Scene {
   private playerTX = 0;
   private playerTY = 0;
   private visibleEnemies: { tileX: number; tileY: number }[] = [];
+  private leaderboardButtonBg!: Phaser.GameObjects.Rectangle;
+  private leaderboardButtonIcon!: Phaser.GameObjects.Image;
+  private leaderboardButtonText!: Phaser.GameObjects.Text;
+  private leaderboardBackdrop!: Phaser.GameObjects.Rectangle;
+  private leaderboardPanel!: Phaser.GameObjects.Rectangle;
+  private leaderboardTitle!: Phaser.GameObjects.Text;
+  private leaderboardClose!: Phaser.GameObjects.Text;
+  private leaderboardStatus!: Phaser.GameObjects.Text;
+  private leaderboardHint!: Phaser.GameObjects.Text;
+  private leaderboardHeaderTexts: Phaser.GameObjects.Text[] = [];
+  private leaderboardRows: {
+    bg: Phaser.GameObjects.Rectangle;
+    rank: Phaser.GameObjects.Text;
+    name: Phaser.GameObjects.Text;
+    floor: Phaser.GameObjects.Text;
+    money: Phaser.GameObjects.Text;
+  }[] = [];
+  private leaderboardEntries: LeaderboardRow[] = [];
+  private leaderboardOpen = false;
+  private leaderboardLoading = false;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -183,6 +206,20 @@ export class UIScene extends Phaser.Scene {
       })
       .setPosition(this.viewportW - pad, pad + barH / 2);
 
+    const lbBtnH = 24 * s;
+    const lbBtnW = Math.max(120 * s, this.leaderboardButtonText.width + 30 * s);
+    const lbBtnY = pad + barH / 2;
+    const lbBtnX = this.floorText.x - this.floorText.displayWidth - 8 * s - lbBtnW / 2;
+    this.leaderboardButtonBg
+      .setSize(lbBtnW, lbBtnH)
+      .setPosition(lbBtnX, lbBtnY);
+    this.leaderboardButtonIcon
+      .setDisplaySize(16 * s, 16 * s)
+      .setPosition(lbBtnX - lbBtnW / 2 + 12 * s, lbBtnY);
+    this.leaderboardButtonText
+      .setStyle({ fontSize: `${Math.max(11, Math.round(11 * s))}px`, strokeThickness: Math.max(2, Math.round(2 * s)) })
+      .setPosition(lbBtnX - lbBtnW / 2 + 24 * s, lbBtnY);
+
     const mmX = this.getMinimapX();
     const mmY = this.getMinimapY();
     const mmW = this.getMinimapWidth();
@@ -222,6 +259,7 @@ export class UIScene extends Phaser.Scene {
     }
 
     this.layoutItemIconsRow();
+    this.layoutLeaderboardPanel();
   }
 
   private handleResize() {
@@ -307,6 +345,21 @@ export class UIScene extends Phaser.Scene {
       backgroundColor: '#00000099', padding: { x: 6, y: 3 },
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
+    this.leaderboardButtonBg = this.add.rectangle(0, 0, 120, 24, 0x000000, 0.82)
+      .setStrokeStyle(1, 0x888888, 1)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => this.leaderboardButtonBg.setFillStyle(0x111111, 0.92))
+      .on('pointerout', () => this.leaderboardButtonBg.setFillStyle(0x000000, 0.82))
+      .on('pointerdown', () => void this.toggleLeaderboard());
+    this.leaderboardButtonIcon = this.add.image(0, 0, 'icons', LB_BUTTON_FRAME)
+      .setScrollFactor(0)
+      .setDepth(101);
+    this.leaderboardButtonText = this.add.text(0, 0, t().leaderboard, {
+      fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+
     // Minimap frame
     this.minimapBorder = this.add.rectangle(0, 0, MM_W + 2, MM_H + 2, 0xaaaaaa)
       .setScrollFactor(0).setDepth(109);
@@ -351,6 +404,8 @@ export class UIScene extends Phaser.Scene {
       }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
     }
 
+    this.createLeaderboardPanel();
+
     this.onFloorChanged(this.registry.get('floor') ?? 1);
     this.onHpChanged(this.registry.get('playerHp') ?? MAX_HP, MAX_HP);
     const dungeonData = this.registry.get('dungeonData');
@@ -369,6 +424,8 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('playerStatsChanged', this.onStatsChanged,    this);
     this.game.events.on('itemBought',         this.onItemBought,      this);
     this.scale.on('resize', this.handleResize, this);
+    this.input.on('wheel', this.onWheel, this);
+    this.input.keyboard?.on('keydown-ESC', this.onEsc, this);
 
     this.relayoutHud();
 
@@ -382,6 +439,8 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off('playerStatsChanged', this.onStatsChanged,  this);
       this.game.events.off('itemBought',         this.onItemBought,    this);
       this.scale.off('resize', this.handleResize, this);
+      this.input.off('wheel', this.onWheel, this);
+      this.input.keyboard?.off('keydown-ESC', this.onEsc, this);
     });
   }
 
@@ -607,6 +666,233 @@ export class UIScene extends Phaser.Scene {
 
     this.itemIconsRow.push(icon);
     this.layoutItemIconsRow();
+  }
+
+  private createLeaderboardPanel() {
+    this.leaderboardBackdrop = this.add.rectangle(0, 0, this.viewportW, this.viewportH, 0x000000, 0.72)
+      .setScrollFactor(0)
+      .setDepth(700)
+      .setVisible(false)
+      .setInteractive()
+      .on('pointerdown', () => this.closeLeaderboard());
+    this.leaderboardPanel = this.add.rectangle(0, 0, 740, 560, 0x130d13, 0.96)
+      .setStrokeStyle(2, 0x9a9a9a, 1)
+      .setScrollFactor(0)
+      .setDepth(701)
+      .setVisible(false);
+    this.leaderboardTitle = this.add.text(0, 0, t().leaderboardTitle, {
+      fontSize: '24px',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(702).setVisible(false);
+    this.leaderboardClose = this.add.text(0, 0, 'X', {
+      fontSize: '24px',
+      fontStyle: 'bold',
+      color: '#ffaaaa',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(702).setVisible(false)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.closeLeaderboard());
+    this.leaderboardStatus = this.add.text(0, 0, '', {
+      fontSize: '16px',
+      color: '#dddddd',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
+    this.leaderboardHint = this.add.text(0, 0, t().leaderboardHint, {
+      fontSize: '14px',
+      color: '#bbbbbb',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(1, 1).setScrollFactor(0).setDepth(702).setVisible(false);
+
+    for (const label of [t().leaderboardRank, t().leaderboardPlayer, t().leaderboardFloor, t().leaderboardMoney]) {
+      this.leaderboardHeaderTexts.push(this.add.text(0, 0, label, {
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#ffdd88',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false));
+    }
+
+    for (let i = 0; i < LB_VISIBLE_ROWS; i++) {
+      const bg = this.add.rectangle(0, 0, 0, 0, 0x23171d, 0.88)
+        .setScrollFactor(0)
+        .setDepth(701)
+        .setVisible(false);
+      const rank = this.add.text(0, 0, '', {
+        fontSize: '15px',
+        color: '#d9d9d9',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
+      const name = this.add.text(0, 0, '', {
+        fontSize: '15px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
+      const floor = this.add.text(0, 0, '', {
+        fontSize: '15px',
+        color: '#ffb066',
+        stroke: '#000000',
+        strokeThickness: 3,
+        fixedWidth: 70,
+        align: 'right',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
+      const money = this.add.text(0, 0, '', {
+        fontSize: '15px',
+        color: '#cde7ff',
+        stroke: '#000000',
+        strokeThickness: 3,
+        fixedWidth: 70,
+        align: 'right',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(702).setVisible(false);
+      this.leaderboardRows.push({ bg, rank, name, floor, money });
+    }
+  }
+
+  private layoutLeaderboardPanel() {
+    if (!this.leaderboardPanel) return;
+    const s = this.uiScale;
+    const panelW = Math.min(this.viewportW - 40 * s, 760 * s);
+    const panelH = Math.min(this.viewportH - 40 * s, 580 * s);
+    const cx = this.viewportW / 2;
+    const cy = this.viewportH / 2;
+    const left = cx - panelW / 2;
+    const top = cy - panelH / 2;
+    const pad = 18 * s;
+    const rankX = left + 22 * s;
+    const nameX = left + 84 * s;
+    const floorX = left + panelW - 190 * s;
+    const moneyX = left + panelW - 92 * s;
+
+    this.leaderboardBackdrop.setSize(this.viewportW, this.viewportH).setPosition(cx, cy);
+    this.leaderboardPanel.setSize(panelW, panelH).setPosition(cx, cy);
+    this.leaderboardTitle
+      .setStyle({ fontSize: `${Math.max(20, Math.round(24 * s))}px`, strokeThickness: Math.max(3, Math.round(4 * s)) })
+      .setPosition(cx, top + pad);
+    this.leaderboardClose.setPosition(left + panelW - pad, top + 26 * s);
+    this.leaderboardStatus
+      .setStyle({ fontSize: `${Math.max(14, Math.round(16 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+      .setPosition(left + pad, top + 70 * s);
+    this.leaderboardHint
+      .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+      .setPosition(left + panelW - pad, top + panelH - pad);
+
+    const headerY = top + 106 * s;
+    const headerXs = [rankX, nameX, floorX, moneyX];
+    this.leaderboardHeaderTexts.forEach((text, i) => {
+      text
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+        .setPosition(headerXs[i], headerY);
+    });
+
+    const rowStartY = top + 136 * s;
+    const rowH = 19 * s;
+    const rowW = panelW - pad * 2;
+    this.leaderboardRows.forEach((row, i) => {
+      const y = rowStartY + i * rowH;
+      row.bg.setSize(rowW, rowH - Math.max(2, 2 * s)).setPosition(cx, y);
+      row.rank
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+        .setPosition(rankX, y);
+      row.name
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
+        .setPosition(nameX, y);
+      row.floor
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 70 * s, align: 'right' })
+        .setPosition(floorX, y);
+      row.money
+        .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)), fixedWidth: 70 * s, align: 'right' })
+        .setPosition(moneyX, y);
+    });
+  }
+
+  private async toggleLeaderboard() {
+    if (this.leaderboardOpen) {
+      this.closeLeaderboard();
+      return;
+    }
+
+    this.leaderboardOpen = true;
+    this.leaderboardLoading = true;
+    this.leaderboardEntries = [];
+    this.setLeaderboardVisible(true);
+    this.setLeaderboardStatus(t().leaderboardLoading);
+    this.scene.pause('GameScene');
+
+    const rows = await loadLeaderboardRows(t().leaderboardHiddenUser);
+    if (!this.leaderboardOpen) return;
+
+    this.leaderboardLoading = false;
+    this.leaderboardEntries = rows;
+    this.setLeaderboardStatus(rows.length === 0 ? t().leaderboardEmpty : '');
+    this.redrawLeaderboardRows();
+  }
+
+  private closeLeaderboard() {
+    if (!this.leaderboardOpen) return;
+    this.leaderboardOpen = false;
+    this.setLeaderboardVisible(false);
+    this.scene.resume('GameScene');
+  }
+
+  private setLeaderboardVisible(visible: boolean) {
+    this.leaderboardBackdrop.setVisible(visible);
+    this.leaderboardPanel.setVisible(visible);
+    this.leaderboardTitle.setVisible(visible);
+    this.leaderboardClose.setVisible(visible);
+    this.leaderboardStatus.setVisible(visible && this.leaderboardStatus.text.length > 0);
+    this.leaderboardHint.setVisible(visible && this.leaderboardEntries.length > LB_VISIBLE_ROWS);
+    this.leaderboardHeaderTexts.forEach(text => text.setVisible(visible));
+    this.redrawLeaderboardRows();
+  }
+
+  private setLeaderboardStatus(text: string) {
+    this.leaderboardStatus.setText(text);
+    this.leaderboardStatus.setVisible(this.leaderboardOpen && text.length > 0);
+  }
+
+  private redrawLeaderboardRows() {
+    const rowsVisible = this.leaderboardOpen && !this.leaderboardLoading && this.leaderboardEntries.length > 0;
+    this.leaderboardHint.setVisible(rowsVisible && this.leaderboardEntries.length > LB_VISIBLE_ROWS);
+
+    this.leaderboardRows.forEach((row, i) => {
+      const entry = this.leaderboardEntries[i];
+      const visible = rowsVisible && !!entry;
+      row.bg.setVisible(visible);
+      row.rank.setVisible(visible);
+      row.name.setVisible(visible);
+      row.floor.setVisible(visible);
+      row.money.setVisible(visible);
+
+      if (!entry) return;
+
+      row.bg.setFillStyle(entry.isPlayer ? 0x3b262c : (i % 2 === 0 ? 0x23171d : 0x1a1116), 0.88);
+      row.rank.setText(`#${entry.rank}`);
+      row.name.setText(entry.name.length > 22 ? `${entry.name.slice(0, 21)}…` : entry.name);
+      row.floor.setText(String(entry.floor));
+      row.money.setText(String(entry.coins));
+    });
+  }
+
+  private onWheel(
+    _pointer: Phaser.Input.Pointer,
+    _objects: Phaser.GameObjects.GameObject[],
+    _deltaX: number,
+    _deltaY: number,
+    _deltaZ: number,
+  ) {
+    if (!this.leaderboardOpen) return;
+  }
+
+  private onEsc() {
+    this.closeLeaderboard();
   }
 
   /** Clockwise pie-sweep cooldown overlay for Q and E ability icons. */

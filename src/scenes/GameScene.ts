@@ -15,6 +15,7 @@ import { Chest } from '../entities/Chest';
 import { getStats, getPerks, setStats, setPerks, clearStats, clearPerks, saveRun, loadRun, clearRun, PlayerStats, PlayerPerks, PurchasedItem } from '../systems/RunState';
 import { ShopSystem, ShopItemInstance, SpecialEffect } from '../systems/ShopSystem';
 import { AudioSystem } from '../systems/AudioSystem';
+import { submitRunToLeaderboards } from '../systems/LeaderboardSystem';
 import { t } from '../lang';
 
 // Tileset frame indices (Dungeon_Tileset.png, 10-col grid of 16×16, frame = row*10+col)
@@ -1147,6 +1148,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showGameOver() {
+    const finalFloor = this.floor;
+    const finalCoins = this.coinValue;
     (window as any).ysdk?.features?.GameplayAPI?.stop();
     this.audio.destroy();
     this.shopSystem?.destroy();
@@ -1160,6 +1163,7 @@ export class GameScene extends Phaser.Scene {
     clearStats(this.registry);
     clearPerks(this.registry);
     clearRun();
+    void submitRunToLeaderboards(finalFloor, finalCoins);
 
     const cam = this.cameras.main;
     const cx = cam.width / 2;
