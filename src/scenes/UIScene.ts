@@ -826,7 +826,7 @@ export class UIScene extends Phaser.Scene {
       .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
       .setPosition(left + panelW - pad, top + panelH - pad);
 
-    const headerY = top + 106 * s;
+    const headerY = top + 104 * s;
     const headerXs = [rankX, nameX, floorX, moneyHeaderX];
     this.leaderboardHeaderTexts.forEach((text, i) => {
       text
@@ -834,9 +834,13 @@ export class UIScene extends Phaser.Scene {
         .setPosition(headerXs[i], headerY);
     });
 
-    const rowStartY = top + 140 * s;
-    const rowH = 28 * s;
+    const rowStartY = top + 138 * s;
+    const rowBottomPad = 22 * s;
+    const rowAreaH = Math.max(240 * s, panelH - (rowStartY - top) - rowBottomPad);
+    const rowH = Math.max(18 * s, Math.floor(rowAreaH / LB_VISIBLE_ROWS));
     const rowW = panelW - pad * 2;
+    const itemSize = Math.min(18 * s, Math.max(13 * s, rowH - 8 * s));
+    const itemStep = itemSize + 3 * s;
     this.leaderboardRows.forEach((row, i) => {
       const y = rowStartY + i * rowH;
       row.bg.setSize(rowW, rowH - Math.max(1, 1 * s)).setPosition(cx, y);
@@ -851,12 +855,14 @@ export class UIScene extends Phaser.Scene {
         .setPosition(floorX, y);
       row.items.forEach((icon, idx) => {
         icon
-          .setDisplaySize(18 * s, 18 * s)
-          .setPosition(itemsCenterX + idx * 20 * s, y)
+          .setDisplaySize(itemSize, itemSize)
+          .setPosition(itemsCenterX + idx * itemStep, y)
           .setData('itemsCenterX', itemsCenterX)
           .setData('itemsY', y)
           .setData('itemsAreaLeftX', itemsAreaLeftX)
-          .setData('itemsAreaRightX', itemsAreaRightX);
+          .setData('itemsAreaRightX', itemsAreaRightX)
+          .setData('itemSize', itemSize)
+          .setData('itemStep', itemStep);
       });
       row.itemsOverflow
         .setStyle({ fontSize: `${Math.max(12, Math.round(14 * s))}px`, strokeThickness: Math.max(2, Math.round(3 * s)) })
@@ -864,8 +870,10 @@ export class UIScene extends Phaser.Scene {
         .setData('itemsCenterX', itemsCenterX)
         .setData('itemsY', y)
         .setData('itemsAreaLeftX', itemsAreaLeftX)
-        .setData('itemsAreaRightX', itemsAreaRightX);
-      row.moneyIcons.forEach(icon => icon.setDisplaySize(12 * s, 12 * s));
+        .setData('itemsAreaRightX', itemsAreaRightX)
+        .setData('itemSize', itemSize)
+        .setData('itemStep', itemStep);
+      row.moneyIcons.forEach(icon => icon.setDisplaySize(Math.min(12 * s, rowH - 8 * s), Math.min(12 * s, rowH - 8 * s)));
       row.moneyTexts.forEach(text => {
         text.setStyle({
           fontSize: `${Math.max(11, Math.round(12 * s))}px`,
@@ -959,9 +967,8 @@ export class UIScene extends Phaser.Scene {
   ) {
     const visibleFrames = itemFrames.slice(0, icons.length);
     const overflowCount = Math.max(0, itemFrames.length - icons.length);
-    const s = this.uiScale;
-    const step = 20 * s;
-    const iconSize = 18 * s;
+    const iconSize = Number(icons[0]?.getData('itemSize') ?? overflowText.getData('itemSize') ?? (16 * this.uiScale));
+    const step = Number(icons[0]?.getData('itemStep') ?? overflowText.getData('itemStep') ?? (iconSize + 3 * this.uiScale));
     const centerX = Number(icons[0]?.getData('itemsCenterX') ?? overflowText.getData('itemsCenterX') ?? 0);
     const areaLeftX = Number(icons[0]?.getData('itemsAreaLeftX') ?? overflowText.getData('itemsAreaLeftX') ?? centerX);
     const areaRightX = Number(icons[0]?.getData('itemsAreaRightX') ?? overflowText.getData('itemsAreaRightX') ?? centerX);
