@@ -113,6 +113,8 @@ export class UIScene extends Phaser.Scene {
   private leaderboardStatus!: Phaser.GameObjects.Text;
   private leaderboardHint!: Phaser.GameObjects.Text;
   private leaderboardHeaderTexts: Phaser.GameObjects.Text[] = [];
+  private leaderboardRowsMaskShape!: Phaser.GameObjects.Graphics;
+  private leaderboardRowsMask!: Phaser.Display.Masks.GeometryMask;
   private leaderboardRows: {
     bg: Phaser.GameObjects.Rectangle;
     rank: Phaser.GameObjects.Text;
@@ -126,6 +128,8 @@ export class UIScene extends Phaser.Scene {
   private leaderboardEntries: LeaderboardRow[] = [];
   private leaderboardOpen = false;
   private leaderboardLoading = false;
+  private leaderboardScrollOffset = 0;
+  private leaderboardVisibleRows = LB_VISIBLE_ROWS;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -792,6 +796,22 @@ export class UIScene extends Phaser.Scene {
 
       this.leaderboardRows.push({ bg, rank, name, floor, items, itemsOverflow, moneyIcons, moneyTexts });
     }
+
+    this.leaderboardRowsMaskShape = this.add.graphics()
+      .setScrollFactor(0)
+      .setDepth(701)
+      .setVisible(false);
+    this.leaderboardRowsMask = this.leaderboardRowsMaskShape.createGeometryMask();
+    this.leaderboardRows.forEach((row) => {
+      row.bg.setMask(this.leaderboardRowsMask);
+      row.rank.setMask(this.leaderboardRowsMask);
+      row.name.setMask(this.leaderboardRowsMask);
+      row.floor.setMask(this.leaderboardRowsMask);
+      row.items.forEach((icon) => icon.setMask(this.leaderboardRowsMask));
+      row.itemsOverflow.setMask(this.leaderboardRowsMask);
+      row.moneyIcons.forEach((icon) => icon.setMask(this.leaderboardRowsMask));
+      row.moneyTexts.forEach((text) => text.setMask(this.leaderboardRowsMask));
+    });
   }
 
   private layoutLeaderboardPanel() {
@@ -837,10 +857,19 @@ export class UIScene extends Phaser.Scene {
     const rowStartY = top + 138 * s;
     const rowBottomPad = 22 * s;
     const rowAreaH = Math.max(240 * s, panelH - (rowStartY - top) - rowBottomPad);
-    const rowH = Math.max(18 * s, Math.floor(rowAreaH / LB_VISIBLE_ROWS));
+    const targetRowH = 28 * s;
+    this.leaderboardVisibleRows = Math.min(
+      LB_VISIBLE_ROWS,
+      Math.max(10, Math.floor(rowAreaH / targetRowH)),
+    );
+    const rowH = Math.max(20 * s, Math.floor(rowAreaH / this.leaderboardVisibleRows));
     const rowW = panelW - pad * 2;
     const itemSize = Math.min(18 * s, Math.max(13 * s, rowH - 8 * s));
     const itemStep = itemSize + 3 * s;
+    this.leaderboardRowsMaskShape
+      .clear()
+      .fillStyle(0xffffff, 1)
+      .fillRect(left + pad, rowStartY - rowH / 2, rowW, rowH * this.leaderboardVisibleRows);
     this.leaderboardRows.forEach((row, i) => {
       const y = rowStartY + i * rowH;
       row.bg.setSize(rowW, rowH - Math.max(1, 1 * s)).setPosition(cx, y);
@@ -896,6 +925,7 @@ export class UIScene extends Phaser.Scene {
 
     this.leaderboardOpen = true;
     this.leaderboardLoading = true;
+    this.leaderboardScrollOffset = 0;
     this.leaderboardEntries = [];
     this.setLeaderboardVisible(true);
     this.setLeaderboardStatus(t().leaderboardLoading);
@@ -913,6 +943,7 @@ export class UIScene extends Phaser.Scene {
   private closeLeaderboard() {
     if (!this.leaderboardOpen) return;
     this.leaderboardOpen = false;
+    this.leaderboardScrollOffset = 0;
     this.setLeaderboardVisible(false);
     this.scene.resume('GameScene');
   }
@@ -935,10 +966,14 @@ export class UIScene extends Phaser.Scene {
 
   private redrawLeaderboardRows() {
     const rowsVisible = this.leaderboardOpen && !this.leaderboardLoading && this.leaderboardEntries.length > 0;
-    this.leaderboardHint.setVisible(rowsVisible && this.leaderboardEntries.length > LB_VISIBLE_ROWS);
+    const maxOffset = Math.max(0, this.leaderboardEntries.length - this.leaderboardVisibleRows);
+    this.leaderboardScrollOffset = Phaser.Math.Clamp(this.leaderboardScrollOffset, 0, maxOffset);
+    this.leaderboardHint.setVisible(rowsVisible && this.leaderboardEntries.length > this.leaderboardVisibleRows);
 
     this.leaderboardRows.forEach((row, i) => {
-      const entry = this.leaderboardEntries[i];
+      const entry = i < this.leaderboardVisibleRows
+        ? this.leaderboardEntries[this.leaderboardScrollOffset + i]
+        : undefined;
       const visible = rowsVisible && !!entry;
       row.bg.setVisible(visible);
       row.rank.setVisible(visible);
@@ -1059,10 +1094,20 @@ export class UIScene extends Phaser.Scene {
     _pointer: Phaser.Input.Pointer,
     _objects: Phaser.GameObjects.GameObject[],
     _deltaX: number,
-    _deltaY: number,
+    deltaY: number,
     _deltaZ: number,
   ) {
     if (!this.leaderboardOpen) return;
+    const maxOffset = Math.max(0, this.leaderboardEntries.length - this.leaderboardVisibleRows);
+    if (maxOffset <= 0) return;
+    const nextOffset = Phaser.Math.Clamp(
+      this.leaderboardScrollOffset + (deltaY > 0 ? 1 : -1),
+      0,
+      maxOffset,
+    );
+    if (nextOffset === this.leaderboardScrollOffset) return;
+    this.leaderboardScrollOffset = nextOffset;
+    this.redrawLeaderboardRows();
   }
 
   private onEsc() {
