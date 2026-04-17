@@ -3,8 +3,6 @@ import balance from '../data/balance.json';
 import { TILE_WALL } from '../systems/DungeonGenerator';
 import { t } from '../lang';
 
-const GAME_W = 1280;
-const GAME_H = 720;
 const MAX_HP = balance.player.hp;
 const PAD    = 10;
 
@@ -19,15 +17,8 @@ const FILL_SRC_H     = 16; // высота фрейма в источнике
 
 // ── Ability hotkey icons ──────────────────────────────────────────────────────
 const AB_SZ = 48;   // icon square size px
-const AB_R  = AB_SZ / 2; // pie sweep radius = half icon
-const AB_QX = PAD + AB_SZ / 2;         // Q icon center X
-const AB_EX = PAD + AB_SZ + 8 + AB_SZ / 2; // E icon center X
-const AB_Y  = GAME_H - PAD - AB_SZ / 2;   // Y near bottom
-
 const MM_W = 150;
 const MM_H = 150;
-const MM_X = GAME_W - PAD - MM_W;
-const MM_Y = GAME_H - PAD - MM_H;
 
 const REVEAL_RADIUS = 5;
 const ENEMY_VISION  = 8;
@@ -51,6 +42,8 @@ export class UIScene extends Phaser.Scene {
   private hpText!:    Phaser.GameObjects.Text;
   private floorText!: Phaser.GameObjects.Text;
   private prevHp      = MAX_HP;
+  private viewportW   = 1280;
+  private viewportH   = 720;
 
   private coinIcons!: [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
   private coinTexts!: [Phaser.GameObjects.Text,  Phaser.GameObjects.Text,  Phaser.GameObjects.Text];
@@ -59,6 +52,13 @@ export class UIScene extends Phaser.Scene {
   // Ability cooldown state (0 = ready, 1 = just used)
   private abCd = { q: 0, e: 0 };
   private abGfx!: Phaser.GameObjects.Graphics;
+  private qIcon!: Phaser.GameObjects.Image;
+  private eIcon!: Phaser.GameObjects.Image;
+  private qLabel!: Phaser.GameObjects.Text;
+  private eLabel!: Phaser.GameObjects.Text;
+  private abQx = 0;
+  private abEx = 0;
+  private abY = 0;
 
   private statText!:  Phaser.GameObjects.Text;
   private statIcon!:  Phaser.GameObjects.Image;
@@ -90,6 +90,8 @@ export class UIScene extends Phaser.Scene {
   private visibleGfx!:  Phaser.GameObjects.Graphics; // bright current-view — redraws every frame
   private unitGfx!:     Phaser.GameObjects.Graphics; // player + enemies
 
+  private minimapBorder!: Phaser.GameObjects.Rectangle;
+  private minimapBg!: Phaser.GameObjects.Rectangle;
   private exploredDirty = false;
 
   private playerTX = 0;
@@ -100,7 +102,85 @@ export class UIScene extends Phaser.Scene {
     super({ key: 'UIScene' });
   }
 
+  private syncViewportSize() {
+    this.viewportW = this.scale.gameSize.width;
+    this.viewportH = this.scale.gameSize.height;
+  }
+
+  private getMinimapX() {
+    return this.viewportW - PAD - MM_W;
+  }
+
+  private getMinimapY() {
+    return this.viewportH - PAD - MM_H;
+  }
+
+  private layoutItemIconsRow() {
+    if (this.itemIconsRow.length === 0) return;
+    const SZ = 24;
+    const GAP = 4;
+    const totalW = this.itemIconsRow.length * (SZ + GAP) - GAP;
+    const x0 = this.viewportW / 2 - totalW / 2;
+    const y = this.viewportH - SZ / 2 - 2;
+    this.itemIconsRow.forEach((ic, i) => {
+      ic.setPosition(x0 + i * (SZ + GAP) + SZ / 2, y);
+    });
+  }
+
+  private relayoutHud() {
+    this.syncViewportSize();
+
+    this.abY = this.viewportH - PAD - AB_SZ / 2;
+    this.abQx = PAD + AB_SZ / 2;
+    this.abEx = PAD + AB_SZ + 8 + AB_SZ / 2;
+
+    this.hpBarEmpty.setPosition(PAD, PAD);
+    this.hpBarFill.setPosition(PAD, PAD);
+    this.hpBarDamage.setPosition(PAD, PAD);
+    this.hpBarHeal.setPosition(PAD, PAD);
+    this.hpText.setPosition(PAD + 8 * HP_SCALE, PAD + BAR_H / 2);
+
+    this.coinY = PAD + BAR_H + 6;
+    this.onCoinsChanged(this.registry.get('coinValue') ?? 0);
+
+    this.qIcon.setPosition(this.abQx, this.abY);
+    this.eIcon.setPosition(this.abEx, this.abY);
+    this.qLabel.setPosition(this.abQx + AB_SZ / 2 - 2, this.abY + AB_SZ / 2 - 2);
+    this.eLabel.setPosition(this.abEx + AB_SZ / 2 - 2, this.abY + AB_SZ / 2 - 2);
+
+    this.floorText.setPosition(this.viewportW - PAD, PAD + BAR_H / 2);
+
+    const mmX = this.getMinimapX();
+    const mmY = this.getMinimapY();
+    this.minimapBorder.setPosition(mmX + MM_W / 2, mmY + MM_H / 2);
+    this.minimapBg.setPosition(mmX + MM_W / 2, mmY + MM_H / 2);
+
+    const iconSz = 20;
+    const rowH = iconSz + 4;
+    const iconX = mmX - PAD - iconSz / 2;
+    const textX = iconX - iconSz / 2 - 4;
+    const armY = mmY + MM_H - iconSz / 2;
+    const arwY = armY - rowH;
+    const atkY = arwY - rowH;
+
+    this.armorIcon.setPosition(iconX, armY);
+    this.armorText.setPosition(textX, armY);
+    this.arrowIcon.setPosition(iconX, arwY);
+    this.arrowText.setPosition(textX, arwY);
+    this.statIcon.setPosition(iconX, atkY);
+    this.statText.setPosition(textX, atkY);
+
+    this.layoutItemIconsRow();
+  }
+
+  private handleResize() {
+    this.relayoutHud();
+    this.exploredDirty = true;
+  }
+
   create() {
+    this.syncViewportSize();
+
     // Reset instance state that survives scene stop/launch (constructor doesn't re-run)
     this.itemIconsRow = [];
 
@@ -151,35 +231,35 @@ export class UIScene extends Phaser.Scene {
     // ── Ability icons (Q = lunge, E = arrow) ──────────────────
     {
       // Square icon sprites — no circle background
-      this.add.image(AB_QX, AB_Y, 'icons', 1122)
+      this.qIcon = this.add.image(0, 0, 'icons', 1122)
         .setDisplaySize(AB_SZ, AB_SZ).setScrollFactor(0).setDepth(200);
-      this.add.image(AB_EX, AB_Y, 'icons', 1124)
+      this.eIcon = this.add.image(0, 0, 'icons', 1124)
         .setDisplaySize(AB_SZ, AB_SZ).setScrollFactor(0).setDepth(200);
 
       // Cooldown overlay gfx (pie sweep drawn in update, over the square)
       this.abGfx = this.add.graphics().setScrollFactor(0).setDepth(201);
 
       // Key letters — bottom-right corner of each icon
-      this.add.text(AB_QX + AB_SZ / 2 - 2, AB_Y + AB_SZ / 2 - 2, 'Q', {
+      this.qLabel = this.add.text(0, 0, 'Q', {
         fontSize: '13px', fontStyle: 'bold', color: '#ffffff',
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(1, 1).setScrollFactor(0).setDepth(202);
-      this.add.text(AB_EX + AB_SZ / 2 - 2, AB_Y + AB_SZ / 2 - 2, 'E', {
+      this.eLabel = this.add.text(0, 0, 'E', {
         fontSize: '13px', fontStyle: 'bold', color: '#ffffff',
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(1, 1).setScrollFactor(0).setDepth(202);
     }
 
     // Floor label
-    this.floorText = this.add.text(GAME_W - PAD, PAD + BAR_H / 2, t().floor(1), {
+    this.floorText = this.add.text(0, 0, t().floor(1), {
       fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
       backgroundColor: '#00000099', padding: { x: 6, y: 3 },
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
     // Minimap frame
-    this.add.rectangle(MM_X + MM_W / 2, MM_Y + MM_H / 2, MM_W + 2, MM_H + 2, 0xaaaaaa)
+    this.minimapBorder = this.add.rectangle(0, 0, MM_W + 2, MM_H + 2, 0xaaaaaa)
       .setScrollFactor(0).setDepth(109);
-    this.add.rectangle(MM_X + MM_W / 2, MM_Y + MM_H / 2, MM_W, MM_H, 0x000000)
+    this.minimapBg = this.add.rectangle(0, 0, MM_W, MM_H, 0x000000)
       .setScrollFactor(0).setDepth(110);
 
     // Three gfx layers (all fixed to screen)
@@ -191,11 +271,11 @@ export class UIScene extends Phaser.Scene {
     {
       const iconSz  = 20;
       const rowH    = iconSz + 4;
-      const iconX   = MM_X - PAD - iconSz / 2;   // icon center X
+      const iconX   = this.getMinimapX() - PAD - iconSz / 2;   // icon center X
       const textX   = iconX - iconSz / 2 - 4;    // text right edge
 
       // Bottom-aligned: armor at bottom, arrow above, sword at top
-      const armY = MM_Y + MM_H - iconSz / 2;
+      const armY = this.getMinimapY() + MM_H - iconSz / 2;
       this.armorIcon = this.add.image(iconX, armY, 'icons', 1818)
         .setDisplaySize(iconSz, iconSz).setScrollFactor(0).setDepth(100);
       this.armorText = this.add.text(textX, armY, '10', {
@@ -237,6 +317,9 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('abilityState',       this.onAbilityState,    this);
     this.game.events.on('playerStatsChanged', this.onStatsChanged,    this);
     this.game.events.on('itemBought',         this.onItemBought,      this);
+    this.scale.on('resize', this.handleResize, this);
+
+    this.relayoutHud();
 
     this.events.once('shutdown', () => {
       this.game.events.off('playerHpChanged',    this.onHpChanged,     this);
@@ -247,6 +330,7 @@ export class UIScene extends Phaser.Scene {
       this.game.events.off('abilityState',       this.onAbilityState,  this);
       this.game.events.off('playerStatsChanged', this.onStatsChanged,  this);
       this.game.events.off('itemBought',         this.onItemBought,    this);
+      this.scale.off('resize', this.handleResize, this);
     });
   }
 
@@ -392,6 +476,8 @@ export class UIScene extends Phaser.Scene {
     if (!this.tiles.length) return;
     this.exploredGfx.clear();
     const s = this.mmScale;
+    const mmX = this.getMinimapX();
+    const mmY = this.getMinimapY();
 
     for (let row = 0; row < this.mapH; row++) {
       for (let col = 0; col < this.mapW; col++) {
@@ -402,7 +488,7 @@ export class UIScene extends Phaser.Scene {
 
         const color = this.tiles[row][col] === TILE_WALL ? C_WALL_DIM : C_FLOOR_DIM;
         this.exploredGfx.fillStyle(color, 1);
-        this.exploredGfx.fillRect(MM_X + col * s, MM_Y + row * s, Math.max(1, s), Math.max(1, s));
+        this.exploredGfx.fillRect(mmX + col * s, mmY + row * s, Math.max(1, s), Math.max(1, s));
       }
     }
   }
@@ -412,27 +498,29 @@ export class UIScene extends Phaser.Scene {
     if (!this.tiles.length) return;
     this.visibleGfx.clear();
     const s = this.mmScale;
+    const mmX = this.getMinimapX();
+    const mmY = this.getMinimapY();
 
     for (const key of this.currentVisible) {
       const row = Math.floor(key / this.mapW);
       const col = key % this.mapW;
       const color = this.tiles[row][col] === TILE_WALL ? C_WALL_BRIGHT : C_FLOOR_BRIGHT;
       this.visibleGfx.fillStyle(color, 1);
-      this.visibleGfx.fillRect(MM_X + col * s, MM_Y + row * s, Math.max(1, s), Math.max(1, s));
+      this.visibleGfx.fillRect(mmX + col * s, mmY + row * s, Math.max(1, s), Math.max(1, s));
     }
 
     // Stair — yellow, only if revealed
     if (this.revealed[this.stairTY]?.[this.stairTX]) {
-      const sx = MM_X + (this.stairTX + 0.5) * s;
-      const sy = MM_Y + (this.stairTY + 0.5) * s;
+      const sx = mmX + (this.stairTX + 0.5) * s;
+      const sy = mmY + (this.stairTY + 0.5) * s;
       this.visibleGfx.fillStyle(C_STAIR, 1);
       this.visibleGfx.fillCircle(sx, sy, Math.max(2, s * 0.8));
     }
 
     // Start — blue, only if revealed
     if (this.revealed[this.startTY]?.[this.startTX]) {
-      const sx = MM_X + (this.startTX + 0.5) * s;
-      const sy = MM_Y + (this.startTY + 0.5) * s;
+      const sx = mmX + (this.startTX + 0.5) * s;
+      const sy = mmY + (this.startTY + 0.5) * s;
       this.visibleGfx.fillStyle(C_START, 1);
       this.visibleGfx.fillCircle(sx, sy, Math.max(2, s * 0.8));
     }
@@ -451,13 +539,7 @@ export class UIScene extends Phaser.Scene {
 
   private onItemBought(data: { frame: number; name: string }) {
     const SZ  = 24;
-    const GAP = 4;
-    const y = GAME_H - SZ / 2 - 2;
-
-    const idx = this.itemIconsRow.length;
-    // Reposition all icons centered
-    const totalW = (idx + 1) * (SZ + GAP) - GAP;
-    const x0 = GAME_W / 2 - totalW / 2;
+    const y = this.viewportH - SZ / 2 - 2;
 
     const icon = this.add.image(0, y, 'icons', data.frame)
       .setDisplaySize(SZ, SZ)
@@ -466,23 +548,18 @@ export class UIScene extends Phaser.Scene {
       .setAlpha(0.9);
 
     this.itemIconsRow.push(icon);
-
-    // Reposition all
-    this.itemIconsRow.forEach((ic, i) => {
-      ic.setX(x0 + i * (SZ + GAP) + SZ / 2);
-    });
-
+    this.layoutItemIconsRow();
   }
 
   /** Clockwise pie-sweep cooldown overlay for Q and E ability icons. */
   private redrawAbilityCooldowns() {
     this.abGfx.clear();
-    const entries: [number, number][] = [[AB_QX, this.abCd.q], [AB_EX, this.abCd.e]];
+    const entries: [number, number][] = [[this.abQx, this.abCd.q], [this.abEx, this.abCd.e]];
     for (const [cx, pct] of entries) {
       if (pct <= 0) continue;
       // Square overlay: fills from top down proportional to cooldown pct
       const left = cx - AB_SZ / 2;
-      const top  = AB_Y - AB_SZ / 2;
+      const top  = this.abY - AB_SZ / 2;
       const h    = AB_SZ * pct;
       this.abGfx.fillStyle(0x000000, 0.72);
       this.abGfx.fillRect(left, top, AB_SZ, h);
@@ -494,13 +571,15 @@ export class UIScene extends Phaser.Scene {
     this.unitGfx.clear();
     const s = this.mmScale;
     const r = Math.max(1.5, s * 0.6);
+    const mmX = this.getMinimapX();
+    const mmY = this.getMinimapY();
 
     // Enemies
     this.unitGfx.fillStyle(C_ENEMY, 1);
     for (const e of this.visibleEnemies) {
       this.unitGfx.fillCircle(
-        MM_X + (e.tileX + 0.5) * s,
-        MM_Y + (e.tileY + 0.5) * s,
+        mmX + (e.tileX + 0.5) * s,
+        mmY + (e.tileY + 0.5) * s,
         r
       );
     }
@@ -509,8 +588,8 @@ export class UIScene extends Phaser.Scene {
     {
       this.unitGfx.fillStyle(C_PLAYER, 1);
       this.unitGfx.fillCircle(
-        MM_X + (this.playerTX + 0.5) * s,
-        MM_Y + (this.playerTY + 0.5) * s,
+        mmX + (this.playerTX + 0.5) * s,
+        mmY + (this.playerTY + 0.5) * s,
         Math.max(2, s * 0.8)
       );
     }

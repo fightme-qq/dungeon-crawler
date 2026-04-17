@@ -7,11 +7,12 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     // ── Loading bar ───────────────────────────────────────────────────────────
-    const W = 400, H = 20, x = (1280 - W) / 2, y = 720 / 2;
-    this.add.rectangle(640, 360, 1280, 720, 0x111111);
-    this.add.text(640, y - 40, 'Loading...', {
-      fontSize: '20px', color: '#ffffff', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5);
+    const { width, height } = this.scale.gameSize;
+    const W = Math.min(400, width - 40);
+    const H = 20;
+    const x = (width - W) / 2;
+    const y = height / 2;
+    this.add.rectangle(width / 2, height / 2, width, height, 0x111111);
     const barBg  = this.add.rectangle(x, y, W, H, 0x333333).setOrigin(0, 0);
     const barFill = this.add.rectangle(x, y, 0, H, 0x44aaff).setOrigin(0, 0);
     this.load.on('progress', (v: number) => barFill.setSize(W * v, H));
@@ -240,7 +241,21 @@ export class BootScene extends Phaser.Scene {
     // Сообщаем Яндексу что BootScene завершён — ready() вызовется когда оба флага выставлены
     (window as any).__bootDone = true;
     (window as any).__trySignalReady?.();
+    const startGame = () => {
+      if (!this.scene.isActive('BootScene')) return;
+      (window as any).__onSdkReady = null;
+      this.scene.start('GameScene');
+    };
 
-    this.scene.start('GameScene');
+    if ((window as any).__sdkDone) {
+      startGame();
+    } else {
+      (window as any).__onSdkReady = startGame;
+      this.events.once('shutdown', () => {
+        if ((window as any).__onSdkReady === startGame) {
+          (window as any).__onSdkReady = null;
+        }
+      });
+    }
   }
 }

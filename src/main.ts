@@ -6,6 +6,13 @@ import { refreshLang } from './lang';
 
 declare const YaGames: { init(): Promise<any> } | undefined;
 
+function getViewportSize() {
+  return {
+    width: Math.max(320, window.innerWidth || document.documentElement.clientWidth || 1280),
+    height: Math.max(320, window.innerHeight || document.documentElement.clientHeight || 720),
+  };
+}
+
 // Флаги синхронизации: ready() вызываем только когда оба готовы
 (window as any).__sdkDone  = false;
 (window as any).__bootDone = false;
@@ -22,6 +29,7 @@ setTimeout(() => {
   if (!(window as any).__sdkDone) {
     (window as any).__sdkDone = true;
     trySignalReady();
+    (window as any).__onSdkReady?.();
   }
 }, 5000);
 
@@ -52,6 +60,7 @@ setTimeout(() => {
   } finally {
     (window as any).__sdkDone = true;
     trySignalReady();
+    (window as any).__onSdkReady?.();
   }
 })();
 
@@ -60,10 +69,8 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#2a2a2a',
   pixelArt: true,
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 1280,
-    height: 720,
+    mode: Phaser.Scale.RESIZE,
+    ...getViewportSize(),
   },
   physics: {
     default: 'arcade',
@@ -76,3 +83,14 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 (window as any).__phaserGame = new Phaser.Game(config);
+
+const syncViewport = () => {
+  const g = (window as any).__phaserGame as Phaser.Game | undefined;
+  if (!g?.scale) return;
+  const { width, height } = getViewportSize();
+  g.scale.resize(width, height);
+};
+
+window.addEventListener('resize', syncViewport, { passive: true });
+window.addEventListener('orientationchange', syncViewport, { passive: true });
+syncViewport();

@@ -87,6 +87,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.input.mouse?.disableContextMenu();
+
     // If registry has no floor (fresh page load, not a floor transition),
     // try to restore a saved run from localStorage (Rule 1.9)
     if (this.registry.get('floor') == null) {
@@ -870,6 +872,7 @@ export class GameScene extends Phaser.Scene {
     this.audio.detach();
     this.shopSystem?.destroy();
     this.shopSystem = null;
+    (window as any).ysdk?.features?.GameplayAPI?.stop();
     this.scene.stop('UIScene');
     this.scene.restart();
   }
@@ -888,10 +891,13 @@ export class GameScene extends Phaser.Scene {
     clearStats(this.registry);
     clearRun();
 
-    this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7).setDepth(900).setScrollFactor(0);
-    this.add.text(640, 330, t().gameOver, { fontSize: '48px', color: '#ff4444', stroke: '#000', strokeThickness: 4 })
+    const cam = this.cameras.main;
+    const cx = cam.width / 2;
+    const cy = cam.height / 2;
+    this.add.rectangle(cx, cy, cam.width, cam.height, 0x000000, 0.7).setDepth(900).setScrollFactor(0);
+    this.add.text(cx, cy - 30, t().gameOver, { fontSize: '48px', color: '#ff4444', stroke: '#000', strokeThickness: 4 })
       .setOrigin(0.5).setDepth(901).setScrollFactor(0);
-    this.add.text(640, 390, t().clickRestart, { fontSize: '20px', color: '#ffffff' })
+    this.add.text(cx, cy + 30, t().clickRestart, { fontSize: '20px', color: '#ffffff' })
       .setOrigin(0.5).setDepth(901).setScrollFactor(0);
 
     // Remove attack listener so clicks go to restart
