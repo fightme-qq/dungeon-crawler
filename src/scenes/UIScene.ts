@@ -5,6 +5,8 @@ import { t } from '../lang';
 
 const MAX_HP = balance.player.hp;
 const PAD    = 10;
+const BASE_UI_W = 1280;
+const BASE_UI_H = 720;
 
 // ── CrimsonFantasyGUI HP бар (CriticalDamage-Sheet.png) ──────────────────────
 // 20 фреймов 64×16, фрейм 0 = полный, фрейм 19 = пустой
@@ -44,6 +46,7 @@ export class UIScene extends Phaser.Scene {
   private prevHp      = MAX_HP;
   private viewportW   = 1280;
   private viewportH   = 720;
+  private uiScale     = 1;
 
   private coinIcons!: [Phaser.GameObjects.Image, Phaser.GameObjects.Image, Phaser.GameObjects.Image];
   private coinTexts!: [Phaser.GameObjects.Text,  Phaser.GameObjects.Text,  Phaser.GameObjects.Text];
@@ -103,8 +106,13 @@ export class UIScene extends Phaser.Scene {
   }
 
   private syncViewportSize() {
-    this.viewportW = this.scale.gameSize.width;
-    this.viewportH = this.scale.gameSize.height;
+    this.uiScale = Math.min(
+      this.scale.gameSize.width / BASE_UI_W,
+      this.scale.gameSize.height / BASE_UI_H,
+    );
+    this.cameras.main.setZoom(this.uiScale);
+    this.viewportW = this.scale.gameSize.width / this.uiScale;
+    this.viewportH = this.scale.gameSize.height / this.uiScale;
   }
 
   private getMinimapX() {
