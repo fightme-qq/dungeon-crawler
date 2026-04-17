@@ -99,14 +99,30 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(BASE_CAMERA_ZOOM * fitScale);
   }
 
+  private roomCornerWorld(room: Room, corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight') {
+    const tileX = corner === 'topLeft' || corner === 'bottomLeft'
+      ? room.x
+      : room.x + room.w - 1;
+    const tileY = corner === 'topLeft' || corner === 'topRight'
+      ? room.y
+      : room.y + room.h - 1;
+    return {
+      x: tileX * TILE_S + TILE_S / 2,
+      y: tileY * TILE_S + TILE_S / 2,
+    };
+  }
+
   create() {
     this.input.mouse?.disableContextMenu();
+    const hadActiveRun = this.registry.get('floor') != null;
+    let restoredSave = false;
 
     // If registry has no floor (fresh page load, not a floor transition),
     // try to restore a saved run from localStorage (Rule 1.9)
     if (this.registry.get('floor') == null) {
       const save = loadRun();
       if (save) {
+        restoredSave = true;
         this.registry.set('floor',          save.floor);
         this.registry.set('playerHp',       save.hp);
         this.registry.set('coinValue',      save.coins);
@@ -123,9 +139,8 @@ export class GameScene extends Phaser.Scene {
     this.stairChargeMs = 0;
     this.stats        = getStats(this.registry);
     this.perks        = getPerks(this.registry);
-    if (this.hasOwnedPurchase(balance.shop.divineArrowItem.productId)) {
-      this.perks.divineVolley = true;
-      setPerks(this.registry, this.perks);
+    if (!hadActiveRun && !restoredSave) {
+      this.applyOwnedPremiumUnlocksForFreshRun();
     }
 
     // Canvas textures (trap, torch) are created in BootScene but may not survive
@@ -561,8 +576,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Heal item near stair — 100% on floor 1, 25% otherwise
-    if (this.floor === 1 || Math.random() < 0.25) {
-      this.shopSystem.spawnHealItem(this.stairX + TILE_S, this.stairY);
+    const stairsRoom = dungeon.rooms.find(r => r.type === 'stairs');
+    if (stairsRoom && (this.floor === 1 || Math.random() < 0.25)) {
+      const healPos = this.roomCornerWorld(stairsRoom, 'bottomRight');
+      this.shopSystem.spawnHealItem(healPos.x, healPos.y);
     }
 
     this.scene.launch('UIScene');
@@ -925,6 +942,23 @@ export class GameScene extends Phaser.Scene {
       (window as any).__ownedPurchases = owned;
     }
     owned.add(productId);
+  }
+
+  private applyOwnedPremiumUnlocksForFreshRun(): void {
+    const divine = balance.shop.divineArrowItem;
+    if (!this.hasOwnedPurchase(divine.productId)) return;
+
+    this.stats.arrowDamage += divine.arrowDamageBonus;
+    this.perks.divineVolley = true;
+    setStats(this.registry, this.stats);
+    setPerks(this.registry, this.perks);
+
+    const list: PurchasedItem[] = this.registry.get('purchasedItems') ?? [];
+    const alreadyListed = list.some(item => item.frame === divine.frame && item.name === t().divineArrowItemName);
+    if (!alreadyListed) {
+      list.push({ frame: divine.frame, name: t().divineArrowItemName });
+      this.registry.set('purchasedItems', list);
+    }
   }
 
   // ── Stair bar ─────────────────────────────────────────────────
