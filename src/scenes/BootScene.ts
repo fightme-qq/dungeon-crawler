@@ -241,9 +241,13 @@ export class BootScene extends Phaser.Scene {
     // Сообщаем Яндексу что BootScene завершён — ready() вызовется когда оба флага выставлены
     (window as any).__bootDone = true;
     (window as any).__trySignalReady?.();
+    let started = false;
     const startGame = () => {
-      if (!this.scene.isActive('BootScene')) return;
-      (window as any).__onSdkReady = null;
+      if (started) return;
+      started = true;
+      if ((window as any).__onSdkReady === startGame) {
+        (window as any).__onSdkReady = null;
+      }
       this.scene.start('GameScene');
     };
 
