@@ -202,7 +202,7 @@ export async function loadLeaderboardRows(hiddenUserLabel: string): Promise<Lead
     const rows = dedupeRows((result?.entries ?? []).map((entry: any) => {
       const extra = decodeLeaderboardExtraData(entry?.extraData, entry?.score ?? 0);
       return {
-        rank: (entry?.rank ?? 0) + 1,
+        rank: entry?.rank ?? 0,
         name: entry?.player?.publicName || hiddenUserLabel,
         floor: extra.floor,
         coins: extra.coins,
