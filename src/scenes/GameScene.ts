@@ -1013,6 +1013,7 @@ export class GameScene extends Phaser.Scene {
       (window as any).__ownedPurchases = owned;
     }
     owned.add(productId);
+    (window as any).__saveOwnedPurchases?.();
   }
 
   private applyOwnedPremiumUnlocksForFreshRun(): void {
