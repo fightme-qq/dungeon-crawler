@@ -285,6 +285,13 @@ export class UIScene extends Phaser.Scene {
 
     // Reset instance state that survives scene stop/launch (constructor doesn't re-run)
     this.itemIconsRow = [];
+    this.leaderboardHeaderTexts = [];
+    this.leaderboardRows = [];
+    this.leaderboardEntries = [];
+    this.leaderboardOpen = false;
+    this.leaderboardLoading = false;
+    this.leaderboardScrollOffset = 0;
+    this.leaderboardVisibleRows = LB_VISIBLE_ROWS;
 
     // ── HP бар (CrimsonFantasyGUI CriticalDamage-Sheet) ─────────────────────
     // Нижний слой: пустой бар (фрейм 19) — всегда виден полностью
