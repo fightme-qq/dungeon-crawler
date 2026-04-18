@@ -164,12 +164,24 @@ export class UIScene extends Phaser.Scene {
     if (this.itemIconsRow.length === 0) return;
     const SZ = 24 * this.uiScale;
     const GAP = 4 * this.uiScale;
-    const totalW = this.itemIconsRow.length * (SZ + GAP) - GAP;
-    const x0 = this.viewportW / 2 - totalW / 2;
-    const y = this.viewportH - SZ / 2 - 2 * this.uiScale;
+    const leftSafeX = 84 * this.uiScale;
+    const rightSafeX = this.getMinimapX() - 16 * this.uiScale;
+    const availableW = Math.max(SZ, rightSafeX - leftSafeX);
+    const maxPerRow = Math.max(1, Math.floor((availableW + GAP) / (SZ + GAP)));
+    const rows = Math.max(1, Math.ceil(this.itemIconsRow.length / maxPerRow));
+    const baseY = this.viewportH - SZ / 2 - 2 * this.uiScale;
+
     this.itemIconsRow.forEach((ic, i) => {
+      const row = Math.floor(i / maxPerRow);
+      const col = i % maxPerRow;
+      const itemsInRow = row === rows - 1
+        ? this.itemIconsRow.length - row * maxPerRow
+        : maxPerRow;
+      const rowW = itemsInRow * (SZ + GAP) - GAP;
+      const x0 = leftSafeX + (availableW - rowW) / 2;
+      const y = baseY - row * (SZ + GAP);
       ic.setDisplaySize(SZ, SZ);
-      ic.setPosition(x0 + i * (SZ + GAP) + SZ / 2, y);
+      ic.setPosition(x0 + col * (SZ + GAP) + SZ / 2, y);
     });
   }
 
@@ -997,7 +1009,7 @@ export class UIScene extends Phaser.Scene {
       row.rank.setText(`#${entry.rank}`);
       row.name.setText(entry.name.length > 22 ? `${entry.name.slice(0, 21)}…` : entry.name);
       row.floor.setText(String(entry.floor));
-      this.layoutLeaderboardItemRow(row.items, row.itemsOverflow, entry.itemFrames ?? []);
+      this.layoutLeaderboardItemRow(row.items, row.itemsOverflow, entry.itemFrames ?? [], entry.itemCount ?? entry.itemFrames?.length ?? 0);
       this.layoutLeaderboardMoneyRow(row, entry.coins);
     });
   }
@@ -1006,9 +1018,10 @@ export class UIScene extends Phaser.Scene {
     icons: Phaser.GameObjects.Image[],
     overflowText: Phaser.GameObjects.Text,
     itemFrames: number[],
+    itemCount: number,
   ) {
     const visibleFrames = itemFrames.slice(0, icons.length);
-    const overflowCount = Math.max(0, itemFrames.length - icons.length);
+    const overflowCount = Math.max(0, itemCount - visibleFrames.length);
     const iconSize = Number(icons[0]?.getData('itemSize') ?? overflowText.getData('itemSize') ?? (16 * this.uiScale));
     const step = Number(icons[0]?.getData('itemStep') ?? overflowText.getData('itemStep') ?? (iconSize + 3 * this.uiScale));
     const centerX = Number(icons[0]?.getData('itemsCenterX') ?? overflowText.getData('itemsCenterX') ?? 0);

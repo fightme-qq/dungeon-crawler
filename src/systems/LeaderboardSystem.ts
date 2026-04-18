@@ -16,6 +16,7 @@ type LocalLeaderboardEntry = {
   floor: number;
   coins: number;
   itemFrames: number[];
+  itemCount: number;
   ts: number;
 };
 
@@ -26,6 +27,7 @@ export type LeaderboardRow = {
   coins: number;
   score: number;
   itemFrames: number[];
+  itemCount: number;
   isPlayer?: boolean;
 };
 
@@ -53,6 +55,7 @@ function readLocalEntries(): LocalLeaderboardEntry[] {
       typeof row.floor === 'number' &&
       typeof row.coins === 'number' &&
       Array.isArray(row.itemFrames) &&
+      (typeof row.itemCount === 'number' || typeof row.itemCount === 'undefined') &&
       typeof row.ts === 'number'
     ));
   } catch {
@@ -78,6 +81,7 @@ function buildSampleRows(): LocalLeaderboardEntry[] {
       floor,
       coins,
       itemFrames: i % 3 === 0 ? [1099, 670, 1818] : i % 3 === 1 ? [729, 1788] : [1124, 1818, 670, 729],
+      itemCount: i % 3 === 0 ? 3 : i % 3 === 1 ? 2 : 4,
       score: scoreFromRun(floor, coins),
       ts: i,
     };
@@ -101,6 +105,7 @@ export function encodeLeaderboardExtraData(floor: number, coins: number, itemFra
     f: floor,
     c: coins,
     i: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+    ic: itemFrames.length,
   });
 }
 
@@ -113,8 +118,9 @@ export function decodeLeaderboardExtraData(extraData: string | undefined, score:
       const itemFrames = Array.isArray(parsed?.i)
         ? parsed.i.filter((n: unknown) => typeof n === 'number').slice(0, MAX_EXTRA_ITEM_FRAMES)
         : [];
+      const itemCount = typeof parsed?.ic === 'number' ? parsed.ic : itemFrames.length;
       if (typeof floor === 'number' && typeof coins === 'number') {
-        return { floor, coins, itemFrames };
+        return { floor, coins, itemFrames, itemCount };
       }
     }
   } catch {}
@@ -123,6 +129,7 @@ export function decodeLeaderboardExtraData(extraData: string | undefined, score:
     floor: Math.max(1, Math.floor(score / SCORE_FLOOR_MULTIPLIER)),
     coins: Math.max(0, score % SCORE_FLOOR_MULTIPLIER),
     itemFrames: [] as number[],
+    itemCount: 0,
   };
 }
 
@@ -142,6 +149,7 @@ export function saveRunToLocalLeaderboard(floor: number, coins: number, itemFram
       floor,
       coins,
       itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+      itemCount: itemFrames.length,
       score,
       ts: now,
     };
@@ -151,6 +159,7 @@ export function saveRunToLocalLeaderboard(floor: number, coins: number, itemFram
       floor,
       coins,
       itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+      itemCount: itemFrames.length,
       score,
       ts: now,
     });
@@ -219,6 +228,7 @@ function getLocalLeaderboardRows(): LeaderboardRow[] {
       coins: entry.coins,
       score: entry.score,
       itemFrames: entry.itemFrames ?? [],
+      itemCount: entry.itemCount ?? entry.itemFrames?.length ?? 0,
       isPlayer: isLocalRuntime() && entry.name === 'You',
     }));
 }
@@ -245,6 +255,7 @@ export async function loadLeaderboardRows(hiddenUserLabel: string): Promise<Lead
         coins: extra.coins,
         score: entry?.score ?? 0,
         itemFrames: extra.itemFrames ?? [],
+        itemCount: extra.itemCount ?? extra.itemFrames?.length ?? 0,
       } satisfies LeaderboardRow;
     }));
 

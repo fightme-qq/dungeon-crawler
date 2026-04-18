@@ -148,6 +148,9 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   backgroundColor: '#2a2a2a',
   pixelArt: true,
+  antialias: false,
+  antialiasGL: false,
+  roundPixels: true,
   scale: {
     mode: Phaser.Scale.RESIZE,
     ...getViewportSize(),

@@ -159,6 +159,7 @@ export class GameScene extends Phaser.Scene {
       this.scale.gameSize.height / BASE_VIEW_H,
     );
     this.cameras.main.setZoom(BASE_CAMERA_ZOOM * fitScale);
+    this.cameras.main.roundPixels = true;
   }
 
   private roomCornerWorld(room: Room, corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight') {
@@ -596,7 +597,8 @@ export class GameScene extends Phaser.Scene {
 
     this.updateResponsiveZoom();
     this.cameras.main.setBounds(0, 0, width * TILE_S, height * TILE_S);
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.roundPixels = true;
+    this.cameras.main.startFollow(this.player, true, 1, 1);
     this.scale.on('resize', this.updateResponsiveZoom, this);
 
     this.floatText  = new FloatTextSystem(this);
