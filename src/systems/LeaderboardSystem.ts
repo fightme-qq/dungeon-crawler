@@ -128,14 +128,33 @@ export function decodeLeaderboardExtraData(extraData: string | undefined, score:
 
 export function saveRunToLocalLeaderboard(floor: number, coins: number, itemFrames: number[], name = 'You') {
   const rows = ensureLocalRows();
-  rows.push({
-    name,
-    floor,
-    coins,
-    itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
-    score: scoreFromRun(floor, coins),
-    ts: Date.now(),
-  });
+  const score = scoreFromRun(floor, coins);
+  const now = Date.now();
+  const existingIndex = rows.findIndex((row) => row.name === name);
+
+  if (existingIndex >= 0) {
+    if (rows[existingIndex].score >= score) {
+      writeLocalEntries(rows);
+      return;
+    }
+    rows[existingIndex] = {
+      name,
+      floor,
+      coins,
+      itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+      score,
+      ts: now,
+    };
+  } else {
+    rows.push({
+      name,
+      floor,
+      coins,
+      itemFrames: itemFrames.slice(0, MAX_EXTRA_ITEM_FRAMES),
+      score,
+      ts: now,
+    });
+  }
   writeLocalEntries(rows);
 }
 
@@ -144,6 +163,8 @@ export async function submitRunToLeaderboards(floor: number, coins: number, item
 
   const ysdk = (window as any).ysdk;
   if (!ysdk?.leaderboards?.setScore) return;
+  const nextScore = scoreFromRun(floor, coins);
+  const nextExtraData = encodeLeaderboardExtraData(floor, coins, itemFrames);
 
   try {
     const available = await ysdk.isAvailableMethod?.('leaderboards.setScore');
@@ -151,10 +172,26 @@ export async function submitRunToLeaderboards(floor: number, coins: number, item
   } catch {}
 
   try {
+    const playerEntryAvailable = await ysdk.isAvailableMethod?.('leaderboards.getPlayerEntry');
+    if (playerEntryAvailable !== false && ysdk?.leaderboards?.getPlayerEntry) {
+      try {
+        const currentEntry = await ysdk.leaderboards.getPlayerEntry(LEADERBOARD_NAME);
+        if ((currentEntry?.score ?? -1) >= nextScore) {
+          return;
+        }
+      } catch (err: any) {
+        if (err?.code !== 'LEADERBOARD_PLAYER_NOT_PRESENT') {
+          return;
+        }
+      }
+    }
+  } catch {}
+
+  try {
     await ysdk.leaderboards.setScore(
       LEADERBOARD_NAME,
-      scoreFromRun(floor, coins),
-      encodeLeaderboardExtraData(floor, coins, itemFrames),
+      nextScore,
+      nextExtraData,
     );
   } catch {}
 }
